@@ -49,24 +49,23 @@ struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conn)
         }
     }
 
-
-    if ( conn->hostaddr == "" )
-        conn->hostaddr = DEFAULT_HOSTADDR;
-
-    if ( conn->port == "" )
-        conn->port = DEFAULT_PORT;
-
     while (argc - optind >= 1)
     {
-        if ( conn->user == "" )
+        if ( (argc - optind > 1) && conn->user == "" && conn->dbname == "" )
             conn->user = argv[optind];
-        else if ( conn->dbname == "" )
+        else if ( (argc - optind >= 1) && conn->dbname == "" )
             conn->dbname = argv[optind];
         else
             fprintf(stderr, "%s: warning: extra command-line argument \"%s\" ignored\n", argv[0], argv[optind]);
 
         optind++;
     }    
+
+    if ( conn->hostaddr == "" )
+        conn->hostaddr = DEFAULT_HOSTADDR;
+
+    if ( conn->port == "" )
+        conn->port = DEFAULT_PORT;
 
     if ( conn->user == "" ) {
         conn->user = DEFAULT_USER;
