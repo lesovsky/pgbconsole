@@ -1,9 +1,7 @@
 #include "pgbconsole.h"
 
-int main (int argc, char *argv[])
+struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conn)
 {
-    struct conn_opts adhoc_opts;
-    struct conn_opts *conn = &adhoc_opts;
     conn->hostaddr = "";
     conn->port = "";
     conn->user = "";
@@ -80,9 +78,25 @@ int main (int argc, char *argv[])
     }
     else if ( conn->user != "" && conn->dbname == "" )
         conn->dbname = conn->user;
+}
+
+int main (int argc, char *argv[])
+{
+    struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conn);
+    struct conn_opts adhoc_opts;
+    struct conn_opts *conn = &adhoc_opts;
+   
+    // проверяем есть ли входные аргументы
+    if ( argc == 1 )
+    {
+        printf("here we must check .pgbrc file, otherwise use defaults\n");
+        arg_parse(argc, argv, conn);
+    }
+    else
+        arg_parse(argc, argv, conn);
 
     printf("%s %s %s %s\n", conn->hostaddr, conn->port, conn->user, conn->dbname);
 
+
     return 0;
 }
-

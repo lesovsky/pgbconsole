@@ -22,7 +22,7 @@ const struct option long_options[] = {
 
 /*
  *  Структура которая описывает соединение, на основе структуры 
- *  будет создана переменная для хранения параметров подключения.
+ *  будет создана переменная-структура для хранения параметров подключения.
  */
 struct conn_opts 
 {
@@ -30,4 +30,6 @@ struct conn_opts
     char *port;
     char *user;
     char *dbname;
+    struct conn_opts *prev;
+    struct conn_opts *next;
 };
