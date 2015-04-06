@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <unistd.h>
+#include <pwd.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 // значения по-умолчанию
 #define DEFAULT_HOSTADDR "127.0.0.1"
@@ -24,12 +29,14 @@ const struct option long_options[] = {
  *  Структура которая описывает соединение, на основе структуры 
  *  будет создана переменная-структура для хранения параметров подключения.
  */
-struct conn_opts 
+struct conn_opts                    // rename to connection
 {
-    char *hostaddr;
+    int *terminal;                  // number of terminal or tab
+    char *hostaddr;                 // ip address
     char *port;
     char *user;
     char *dbname;
-    struct conn_opts *prev;
-    struct conn_opts *next;
+    char *password;
+    struct conn_opts *prev;         // pointer to previous connection
+    struct conn_opts *next;         // pointer to next connection
 };

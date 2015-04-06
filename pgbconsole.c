@@ -2,6 +2,8 @@
 
 struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conn)
 {
+    struct passwd *pw = getpwuid(getuid());     // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
+
     conn->hostaddr = "";
     conn->port = "";
     conn->user = "";
@@ -68,11 +70,11 @@ struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conn)
         conn->port = DEFAULT_PORT;
 
     if ( conn->user == "" ) {
-        conn->user = DEFAULT_USER;
+        conn->user = pw->pw_name;
     }
 
     if ( conn->dbname == "" && conn->user == "" ) {
-        conn->user = DEFAULT_USER;
+        conn->user = pw->pw_name;
         conn->dbname = DEFAULT_DBNAME;
     }
     else if ( conn->user != "" && conn->dbname == "" )
@@ -81,7 +83,10 @@ struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conn)
 
 int main (int argc, char *argv[])
 {
+    // Functions declaration.
     struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conn);
+
+    // Structures declaration.
     struct conn_opts adhoc_opts;
     struct conn_opts *conn = &adhoc_opts;
    
