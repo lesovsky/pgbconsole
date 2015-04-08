@@ -1,30 +1,14 @@
 #include "pgbconsole.h"
 
-void conns_create_list(void)
+struct conn_opts create_initial_conn(int argc, char *argv[], struct conn_opts connections[])
 {
-    co1.prev = '\0', co1.next = &co2;
-    co2.prev = &co1, co2.next = &co3;
-    co3.prev = &co2, co3.next = &co4;
-    co4.prev = &co3, co4.next = &co5;
-    co5.prev = &co4, co5.next = &co6;
-    co6.prev = &co5, co6.next = &co7;
-    co7.prev = &co6, co7.next = &co8;
-    co8.prev = &co7, co8.next = '\0';
-
-    conns_list_head = &co1;
-}
-
-struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conns_list_ptr)
-{
-    pw = getpwuid(getuid());     // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
-    conns_list_ptr = conns_list_head;
-
-    conns_list_ptr->hostaddr = "";
-    conns_list_ptr->port = "";
-    conns_list_ptr->user = "";
-    conns_list_ptr->dbname = "";
-
     int param, option_index;
+    pw = getpwuid(getuid());     // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
+
+    connections[0].hostaddr = "";
+    connections[0].port = "";
+    connections[0].user = "";
+    connections[0].dbname = "";
 
     if (argc > 1)
     {
@@ -45,16 +29,16 @@ struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conns_list_
         switch(param)
         {
             case 'h': 
-                conns_list_ptr->hostaddr = optarg;
+                connections[0].hostaddr = optarg;
                 break;
             case 'p':
-                conns_list_ptr->port = optarg;
+                connections[0].port = optarg;
                 break;
             case 'U':
-                conns_list_ptr->user = optarg;
+                connections[0].user = optarg;
                 break;
             case 'd':
-                conns_list_ptr->dbname = optarg;
+                connections[0].dbname = optarg;
                 break;
             case 'H':
                 printf("invoke help printing function here\n", optarg);
@@ -68,32 +52,32 @@ struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conns_list_
 
     while (argc - optind >= 1)
     {
-        if ( (argc - optind > 1) && conns_list_ptr->user == "" && conns_list_ptr->dbname == "" )
-            conns_list_ptr->user = argv[optind];
-        else if ( (argc - optind >= 1) && conns_list_ptr->dbname == "" )
-            conns_list_ptr->dbname = argv[optind];
+        if ( (argc - optind > 1) && connections[0].user == "" && connections[0].dbname == "" )
+            connections[0].user = argv[optind];
+        else if ( (argc - optind >= 1) && connections[0].dbname == "" )
+            connections[0].dbname = argv[optind];
         else
             fprintf(stderr, "%s: warning: extra command-line argument \"%s\" ignored\n", argv[0], argv[optind]);
 
         optind++;
     }    
 
-    if ( conns_list_ptr->hostaddr == "" )
-        conns_list_ptr->hostaddr = DEFAULT_HOSTADDR;
+    if ( connections[0].hostaddr == "" )
+        connections[0].hostaddr = DEFAULT_HOSTADDR;
 
-    if ( conns_list_ptr->port == "" )
-        conns_list_ptr->port = DEFAULT_PORT;
+    if ( connections[0].port == "" )
+        connections[0].port = DEFAULT_PORT;
 
-    if ( conns_list_ptr->user == "" ) {
-        conns_list_ptr->user = pw->pw_name;
+    if ( connections[0].user == "" ) {
+        connections[0].user = pw->pw_name;
     }
 
-    if ( conns_list_ptr->dbname == "" && conns_list_ptr->user == "" ) {
-        conns_list_ptr->user = pw->pw_name;
-        conns_list_ptr->dbname = DEFAULT_DBNAME;
+    if ( connections[0].dbname == "" && connections[0].user == "" ) {
+        connections[0].user = pw->pw_name;
+        connections[0].dbname = DEFAULT_DBNAME;
     }
-    else if ( conns_list_ptr->user != "" && conns_list_ptr->dbname == "" )
-        conns_list_ptr->dbname = conns_list_ptr->user;
+    else if ( connections[0].user != "" && connections[0].dbname == "" )
+        connections[0].dbname = connections[0].user;
 }
 
 int main (int argc, char *argv[])
@@ -106,17 +90,15 @@ int main (int argc, char *argv[])
  * 2.2 если .pgbrc нет, используем те параметр что были переданы в строке запуска
  * 3) если входных параметров нет, формируем подключение из дефолтных значений
  */
-    conns_create_list();
     if ( argc == 1 )
     {
         printf("here we must check .pgbrc file, otherwise use defaults\n");
-        arg_parse(argc, argv, conns_list_ptr);
+        create_initial_conn(argc, argv, connections);
     }
     else
-        arg_parse(argc, argv, conns_list_ptr);
+        create_initial_conn(argc, argv, connections);
 
-    conns_list_ptr = conns_list_head;
-    printf("%s %s %s %s\n", conns_list_ptr->hostaddr, conns_list_ptr->port, conns_list_ptr->user, conns_list_ptr->dbname);
+    printf("%s %s %s %s\n", connections[0].hostaddr, connections[0].port, connections[0].user, connections[0].dbname);
 //    printf("%s %s %s %s\n", co1.hostaddr, co1.port, co1.user, co1.dbname);
 
     return 0;

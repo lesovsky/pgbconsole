@@ -14,7 +14,7 @@
 #define DEFAULT_DBNAME "postgres"
 
 #define PGBRCFILE ".pgbrc"
-#define CONSOLES_LIMIT 8
+#define MAX_CONSOLE 8
 
 /* массив содержащий короткие параметры */
 const char * short_options = "h:p:U:d:";
@@ -30,28 +30,22 @@ const struct option long_options[] = {
 
 /*
  *  Структура которая описывает соединение, на основе структуры 
- *  будет создана переменная-структура для хранения параметров подключения.
+ *  будет создан массив структур для хранения параметров подключения.
  */
 struct conn_opts
 {
-    int *terminal;                  // number of terminal or tab
-    char *hostaddr;                 // ip address
+    char *hostaddr;
     char *port;
     char *user;
     char *dbname;
     char *password;
-    struct conn_opts *prev;         // pointer to previous connection
-    struct conn_opts *next;         // pointer to next connection
 };
 
-/* структуры которые будут организованы в список и будут содержать параметр коннектов */
-struct conn_opts co1, co2, co3, co4, co5, co6, co7, co8;
-/* и 2 указателя для перемещения по списку */
-struct conn_opts *conns_list_head, *conns_list_ptr;
+/* массив структур который содержит параметры коннектов для всех консолей */
+struct conn_opts connections[MAX_CONSOLE];
 
 /* Structures declaration. */
 struct passwd *pw;                  // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
 
 /* Functions prototypes */
-void conns_create_list(void);       // create linked list for storing connection options
-struct conn_opts arg_parse(int argc, char *argv[], struct conn_opts *conns_list_ptr);     // обработка входных параметров и установка дефолтов
+struct conn_opts create_initial_conn(int argc, char *argv[], struct conn_opts connections[]);     // обработка входных параметров и установка дефолтов
