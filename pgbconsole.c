@@ -80,6 +80,23 @@ struct conn_opts create_initial_conn(int argc, char *argv[], struct conn_opts co
         connections[0].dbname = connections[0].user;
 }
 
+int check_pgbrc(void)
+{
+    struct stat statbuf;
+    pw = getpwuid(getuid());
+
+    strcpy(pgbrcpath, pw->pw_dir);
+    strcat(pgbrcpath, "/");
+    strcat(pgbrcpath, PGBRC_FILE);
+
+    if (stat(pgbrcpath, &statbuf) == -1) 
+        return(PGBRC_NOT_EXIST);
+    else if (statbuf.st_mode & ( S_IRWXG | S_IRWXO) )
+        return(PGBRC_WRONG);
+    else
+        return(PGBRC_EXIST);
+}
+
 int main (int argc, char *argv[])
 {
 /*
@@ -90,16 +107,26 @@ int main (int argc, char *argv[])
  * 2.2 если .pgbrc нет, используем те параметр что были переданы в строке запуска
  * 3) если входных параметров нет, формируем подключение из дефолтных значений
  */
-    if ( argc == 1 )
-    {
-        printf("here we must check .pgbrc file, otherwise use defaults\n");
-        create_initial_conn(argc, argv, connections);
+    if ( argc > 1 ) {                                           /* input parameters specified */
+        create_initial_conn(argc, argv, connections);           /* save input parameters */
+        if (check_pgbrc() == PGBRC_EXIST)
+            printf("parameters specified, use them and try to read pgbrc here\n");                        /* if .pgbrc exist read them too */
+    } else {                                                    /* input parameters not specified */
+        switch (check_pgbrc()) {                                /* check .pgbrc */
+        case PGBRC_WRONG:                                       /* .pgbrc has wrong permissions */
+            printf("WARNING: .pgbrc has wrong permissions.\n");
+            create_initial_conn(argc, argv, connections);       /* try use defaults for connection */
+            break;
+        case PGBRC_NOT_EXIST:                                   /* .pgbrc does not exist */
+            create_initial_conn(argc, argv, connections);       /* try use defaults for connection */
+            break;
+        case PGBRC_EXIST: default:                              /* .pgbrc exist */
+            printf("parameters not specidied, try read pgbrc here\n");                        /* try read him */
+            break; 
+        }
     }
-    else
-        create_initial_conn(argc, argv, connections);
 
     printf("%s %s %s %s\n", connections[0].hostaddr, connections[0].port, connections[0].user, connections[0].dbname);
-//    printf("%s %s %s %s\n", co1.hostaddr, co1.port, co1.user, co1.dbname);
 
     return 0;
 }

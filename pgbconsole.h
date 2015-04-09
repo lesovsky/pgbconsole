@@ -1,11 +1,12 @@
+#include <getopt.h>
+#include <limits.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
-#include <unistd.h>
-#include <pwd.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 /* значения по-умолчанию */
 #define DEFAULT_HOSTADDR "127.0.0.1"
@@ -13,8 +14,13 @@
 #define DEFAULT_USER "postgres"
 #define DEFAULT_DBNAME "postgres"
 
-#define PGBRCFILE ".pgbrc"
+#define PGBRC_FILE ".pgbrc"
+#define PGBRC_EXIST 0
+#define PGBRC_NOT_EXIST 1
+#define PGBRC_WRONG 2
 #define MAX_CONSOLE 8
+
+static char pgbrcpath[PATH_MAX];
 
 /* массив содержащий короткие параметры */
 const char * short_options = "h:p:U:d:";
@@ -45,7 +51,8 @@ struct conn_opts
 struct conn_opts connections[MAX_CONSOLE];
 
 /* Structures declaration. */
-struct passwd *pw;                  // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
+static struct passwd *pw;                  // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
 
 /* Functions prototypes */
 struct conn_opts create_initial_conn(int argc, char *argv[], struct conn_opts connections[]);     // обработка входных параметров и установка дефолтов
+int check_pgbrc(void);
