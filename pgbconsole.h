@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <termios.h>
 #include <unistd.h>
 
 /* sizes and limits */
@@ -26,14 +27,16 @@
 static char pgbrcpath[PATH_MAX];
 
 /* массив содержащий короткие параметры */
-const char * short_options = "h:p:U:d:";
+const char * short_options = "h:p:U:d:wW?";
 
 /* структура содержащая длинные параметры и их короткие аналоги */
 const struct option long_options[] = {
-    {"help", optional_argument, NULL, '?'},
+    {"help", no_argument, NULL, '?'},
     {"host", required_argument, NULL, 'h'},
     {"port", required_argument, NULL, 'p'},
     {"dbname", required_argument, NULL, 'd'},
+    {"no-password", no_argument, NULL, 'w'},
+    {"password", no_argument, NULL, 'W'},
     {"user", required_argument, NULL, 'U'},
     {NULL, 0, NULL, 0}
 };
@@ -51,6 +54,14 @@ struct conn_opts
     char user[BUFFERSIZE];
     char dbname[BUFFERSIZE];
     char password[BUFFERSIZE];
+};
+
+/* enum for password purpose */
+enum trivalue
+{
+    TRI_DEFAULT,
+    TRI_NO,
+    TRI_YES
 };
 
 /* массив структур который содержит параметры коннектов для всех консолей */
@@ -71,3 +82,4 @@ static struct passwd *pw;                  // get current user info: pw_name,pw_
 void create_initial_conn(int argc, char *argv[], struct conn_opts connections[]);     // обработка входных параметров и установка дефолтов
 int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], const int pos);
 void print_conn(struct conn_opts connections[]);
+char * simple_prompt(const char *prompt, int maxlen, bool echo);

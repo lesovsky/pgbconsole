@@ -3,6 +3,7 @@
 void create_initial_conn(int argc, char *argv[], struct conn_opts connections[])
 {
     int param, option_index;
+    enum trivalue prompt_password = TRI_DEFAULT;
     pw = getpwuid(getuid());     // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
 
     if (argc > 1)
@@ -35,13 +36,15 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts connections[])
             case 'd':
                 strcpy(connections[0].dbname, optarg);
                 break;
-            case '?':
-                printf("invoke help printing function here\n", optarg);
-                exit (EXIT_SUCCESS);
+            case 'w':
+                prompt_password = TRI_NO;
                 break;
-            default: 
-                printf("unknown option.\n");
-                exit(EXIT_FAILURE);
+            case 'W':
+                prompt_password = TRI_YES;
+                break;
+            case '?': default:
+                fprintf(stderr, "Try \"%s --help\" for more information.\n", argv[0]);
+                exit (EXIT_SUCCESS);
                 break;
         }
     }
@@ -68,6 +71,9 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts connections[])
         strcpy(connections[0].user, pw->pw_name);
     }
 
+    if ( prompt_password == TRI_YES )
+        strcpy(connections[0].password, simple_prompt("Password: ", 100, false));
+
     if ( strlen(connections[0].dbname) == 0 && strlen(connections[0].user) == 0 ) {
         strcpy(connections[0].user, pw->pw_name);
         strcpy(connections[0].dbname, DEFAULT_DBNAME);
@@ -81,7 +87,8 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts connections[])
 int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], const int pos)
 {
     FILE *fp;
-    char strbuf[BUFFERSIZE], a[BUFFERSIZE], b[BUFFERSIZE], c[BUFFERSIZE], d[BUFFERSIZE];
+    struct stat statbuf;
+    char strbuf[BUFFERSIZE];
     int i = pos;
     pw = getpwuid(getuid());
 
@@ -89,20 +96,23 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], co
     strcat(pgbrcpath, "/");
     strcat(pgbrcpath, PGBRC_FILE);
 
+    stat(pgbrcpath, &statbuf);
+    if ( statbuf.st_mode & (S_IRWXG | S_IRWXO) ) {
+        printf("WARNING: %s has wrong permissions.\n", pgbrcpath);
+        return PGBRC_READ_ERR;
+    }
+
     if ((fp = fopen(pgbrcpath, "r")) != NULL) {
         while (fgets(strbuf, 4096, fp) != 0) {
-            sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:\n]", a, b, c, d);
+            sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:\n]", \
+                connections[i].hostaddr, connections[i].port, connections[i].user, connections[i].dbname, connections[i].password);
             connections[i].terminal = i;
             connections[i].conn_used = true;
-            strcpy(connections[i].hostaddr, a);
-            strcpy(connections[i].port, b);
-            strcpy(connections[i].user, c);
-            strcpy(connections[i].dbname, d);
             i++;
         }
         return PGBRC_READ_OK;
     } else {
-        printf("WARNING: failed to open %s. try use defaults\n", pgbrcpath);
+        printf("WARNING: failed to open %s. Try use defaults.\n", pgbrcpath);
         return PGBRC_READ_ERR;
     }
 }
@@ -112,7 +122,33 @@ void print_conn(struct conn_opts connections[])
     int i;
     for ( i = 0; i < MAX_CONSOLE; i++ )
         if (connections[i].conn_used)
-            printf("qq: %i %s %s %s %s\n", connections[i].terminal, connections[i].hostaddr, connections[i].port, connections[i].user, connections[i].dbname);
+            printf("qq: %i %s %s %s %s %s\n", connections[i].terminal, connections[i].hostaddr, connections[i].port, connections[i].user, connections[i].dbname, connections[i].password);
+}
+
+char * simple_prompt(const char *prompt, int maxlen, bool echo)
+{
+    struct termios t_orig, t;
+    char *destination;
+    destination = (char *) malloc(maxlen + 1);
+
+    if (!echo) {
+        tcgetattr(fileno(stdin), &t);
+        t_orig = t;
+        t.c_lflag &= ~ECHO;
+        tcsetattr(fileno(stdin), TCSAFLUSH, &t);
+    }
+
+    fputs(prompt, stdout);
+    if (fgets(destination, maxlen + 1, stdin) == NULL)
+        destination[0] = '\0';
+
+    if (!echo) {
+        tcsetattr(fileno(stdin), TCSAFLUSH, &t_orig);
+        fputs("\n", stdout);
+        fflush(stdout);
+    }
+
+    return destination;
 }
 
 int main (int argc, char *argv[])
