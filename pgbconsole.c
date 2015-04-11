@@ -81,7 +81,7 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts connections[])
 int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], const int pos)
 {
     FILE *fp;
-    char strbuf[4096], a[4096], b[4096], c[4096], d[4096];
+    char strbuf[BUFFERSIZE], a[BUFFERSIZE], b[BUFFERSIZE], c[BUFFERSIZE], d[BUFFERSIZE];
     int i = pos;
     pw = getpwuid(getuid());
 

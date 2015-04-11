@@ -9,6 +9,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+/* sizes and limits */
+#define BUFFERSIZE 4096
+#define MAX_CONSOLE 8
+
 /* значения по-умолчанию */
 #define DEFAULT_HOSTADDR "127.0.0.1"
 #define DEFAULT_PORT "5432"
@@ -18,7 +22,6 @@
 #define PGBRC_FILE ".pgbrc"
 #define PGBRC_READ_OK 0
 #define PGBRC_READ_ERR 1
-#define MAX_CONSOLE 8
 
 static char pgbrcpath[PATH_MAX];
 
@@ -43,11 +46,11 @@ struct conn_opts
 {
     int terminal;
     bool conn_used;
-    char hostaddr[4096];
-    char port[4096];
-    char user[4096];
-    char dbname[4096];
-    char password[4096];
+    char hostaddr[BUFFERSIZE];
+    char port[BUFFERSIZE];
+    char user[BUFFERSIZE];
+    char dbname[BUFFERSIZE];
+    char password[BUFFERSIZE];
 };
 
 /* массив структур который содержит параметры коннектов для всех консолей */
