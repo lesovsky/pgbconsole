@@ -85,6 +85,8 @@ struct conn_opts connections[MAX_CONSOLE] = {
     { 6, false, "", "", "", "", "", "" },
     { 7, false, "", "", "", "", "", "" }};
 
+PGconn * conns[8];        /* массив содержащий указатели на коннекты */
+
 /* Structures declaration. */
 static struct passwd *pw;                  // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
 
@@ -94,6 +96,6 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], co
 void print_conn(struct conn_opts connections[]);
 void prepare_conninfo(struct conn_opts connections[]);          /* prepare conninfo string from conn_opts */
 char * simple_prompt(const char *prompt, int maxlen, bool echo);
-PGconn * do_connection(const char conninfo[]);
-void close_connection(PGconn *conn);
-PGresult * do_query(PGconn * conn, char query[]);
+PGresult * do_query(PGconn * conns[], char query[]);
+void open_connections(struct conn_opts connections[]);
+void close_connections(PGconn * conns[]);

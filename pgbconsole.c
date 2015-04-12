@@ -144,28 +144,28 @@ void prepare_conninfo(struct conn_opts connections[])
         }
 }
 
-PGconn * do_connection(const char conninfo[])
+void open_connections(struct conn_opts connections[])
 {
-    PGconn  *conn;
-    conn = PQconnectdb(conninfo);
-    if ( PQstatus(conn) == CONNECTION_BAD ) {
-        puts("We were unable to connect to the database");
-        return NULL;
+    int i;
+    for ( i = 0; i < MAX_CONSOLE; i++ ) {
+        conns[i] = PQconnectdb(connections[i].conninfo);
+        if ( PQstatus(conns[i]) == CONNECTION_BAD )
+            puts("We were unable to connect to the database");
     }
-    else
-        return conn;
 }
 
-void close_connection(PGconn *conn)
+void close_connections(PGconn * conns[])
 {
+    int i;
     PQclear;
-    PQfinish(conn);
+    for (i = 0; i < MAX_CONSOLE; i++)
+        PQfinish(conns[i]);
 }
 
-PGresult * do_query(PGconn *conn, char query[])
+PGresult * do_query(PGconn * conns[], char query[])
 {
     PGresult    *res;
-    res = PQexec(conn, "show pools");
+    res = PQexec(conns[0], "show pools");
     if ( PQresultStatus(res) != PGRES_TUPLES_OK ) {
         puts("We didn't get any data.");
         return NULL;
@@ -237,16 +237,15 @@ int main (int argc, char *argv[])
 
     prepare_conninfo(connections);
     print_conn(connections);
-    conn = do_connection(connections[0].conninfo);
+    open_connections(connections);
 
     initscr();
     while (1) {
-        res = do_query(conn, "show pools");
+        res = do_query(conns, "show pools");
         show_pools_output(res);
-//        sleep(1);
     }
     endwin();
 
-    close_connection(conn);
+    close_connections(conns);
     return 0;
 }
