@@ -25,6 +25,13 @@
 #define PGBRC_READ_OK 0
 #define PGBRC_READ_ERR 1
 
+#define SHOW_POOLS_COLUMNS_NUM 10
+#define SHOW_CLIENTS_COLUMNS_NUM 12
+#define SHOW_SERVERS_COLUMNS_NUM 12
+#define SHOW_DATABASES_COLUMNS_NUM 7
+#define SHOW_POOLS_COLUMNS_NUM 10
+#define SHOW_POOLS_COLUMNS_NUM 10
+
 static char pgbrcpath[PATH_MAX];
 
 /* массив содержащий короткие параметры */
@@ -88,3 +95,4 @@ void prepare_conninfo(struct conn_opts connections[]);          /* prepare conni
 char * simple_prompt(const char *prompt, int maxlen, bool echo);
 PGconn * do_connection(const char conninfo[]);
 void close_connection(PGconn *conn);
+PGresult * do_query(PGconn * conn, char query[]);

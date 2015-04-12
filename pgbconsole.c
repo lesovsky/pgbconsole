@@ -105,7 +105,7 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], co
     if ((fp = fopen(pgbrcpath, "r")) != NULL) {
         while (fgets(strbuf, 4096, fp) != 0) {
             sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:\n]", \
-                connections[i].hostaddr, connections[i].port, connections[i].user, connections[i].dbname, connections[i].password);
+                connections[i].hostaddr, connections[i].port, connections[i].dbname, connections[i].user, connections[i].password);
             connections[i].terminal = i;
             connections[i].conn_used = true;
             i++;
@@ -162,6 +162,30 @@ void close_connection(PGconn *conn)
     PQfinish(conn);
 }
 
+PGresult * do_query(PGconn *conn, char query[])
+{
+    PGresult    *res;
+    res = PQexec(conn, "show pools");
+    if ( PQresultStatus(res) != PGRES_TUPLES_OK ) {
+        puts("We didn't get any data.");
+        return NULL;
+    }
+    else
+        return res;
+}
+
+void show_pools_output(PGresult *res)
+{
+    int    rec_count, row, col;
+    rec_count = PQntuples(res);
+    for ( row = 0; row < rec_count; row++ ) {
+        for ( col = 0; col < SHOW_POOLS_COLUMNS_NUM; col++ ) {
+            printf("%s\t", PQgetvalue(res, row, col));
+        }
+    puts("");
+    }
+}
+
 char * simple_prompt(const char *prompt, int maxlen, bool echo)
 {
     struct termios t_orig, t;
@@ -192,7 +216,6 @@ int main (int argc, char *argv[])
 {
     PGconn      *conn;
     PGresult    *res;
-    int rec_count, row, col;
 /*
  * Проверяем наличие входных параметров:
  * 1) если есть, то запоминаем их в структуру коннекта
@@ -211,16 +234,11 @@ int main (int argc, char *argv[])
     prepare_conninfo(connections);
     print_conn(connections);
     conn = do_connection(connections[0].conninfo);
-    res = PQexec(conn, "select * from pgbench_accounts limit 5");
-    if ( PQresultStatus(res) != PGRES_TUPLES_OK )
-        puts("We didn't get any data.");
-    
-    rec_count = PQntuples(res);
-    for ( row = 0; row < rec_count; row++ ) {
-        for ( col = 0; col < 3; col++ ) {
-            printf("%s\t", PQgetvalue(res, row, col));
-        }
-        puts("");
+    while (1) {
+        res = do_query(conn, "show pools");
+        show_pools_output(res);
+        sleep(1);
+        printf("\n");
     }
 
     close_connection(conn);
