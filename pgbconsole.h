@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
+#include "libpq-fe.h"
 
 /* sizes and limits */
 #define BUFFERSIZE 4096
@@ -54,6 +55,7 @@ struct conn_opts
     char user[BUFFERSIZE];
     char dbname[BUFFERSIZE];
     char password[BUFFERSIZE];
+    char conninfo[BUFFERSIZE];
 };
 
 /* enum for password purpose */
@@ -66,14 +68,14 @@ enum trivalue
 
 /* массив структур который содержит параметры коннектов для всех консолей */
 struct conn_opts connections[MAX_CONSOLE] = {
-    { 0, false, "", "", "", "", "" },
-    { 1, false, "", "", "", "", "" },
-    { 2, false, "", "", "", "", "" },
-    { 3, false, "", "", "", "", "" },
-    { 4, false, "", "", "", "", "" },
-    { 5, false, "", "", "", "", "" },
-    { 6, false, "", "", "", "", "" },
-    { 7, false, "", "", "", "", "" }};
+    { 0, false, "", "", "", "", "", "" },
+    { 1, false, "", "", "", "", "", "" },
+    { 2, false, "", "", "", "", "", "" },
+    { 3, false, "", "", "", "", "", "" },
+    { 4, false, "", "", "", "", "", "" },
+    { 5, false, "", "", "", "", "", "" },
+    { 6, false, "", "", "", "", "", "" },
+    { 7, false, "", "", "", "", "", "" }};
 
 /* Structures declaration. */
 static struct passwd *pw;                  // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
@@ -82,4 +84,7 @@ static struct passwd *pw;                  // get current user info: pw_name,pw_
 void create_initial_conn(int argc, char *argv[], struct conn_opts connections[]);     // обработка входных параметров и установка дефолтов
 int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], const int pos);
 void print_conn(struct conn_opts connections[]);
+void prepare_conninfo(struct conn_opts connections[]);          /* prepare conninfo string from conn_opts */
 char * simple_prompt(const char *prompt, int maxlen, bool echo);
+PGconn * do_connection(const char conninfo[]);
+void close_connection(PGconn *conn);

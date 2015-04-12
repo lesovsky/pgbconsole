@@ -110,6 +110,7 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], co
             connections[i].conn_used = true;
             i++;
         }
+        fclose(fp);
         return PGBRC_READ_OK;
     } else {
         printf("WARNING: failed to open %s. Try use defaults.\n", pgbrcpath);
@@ -122,7 +123,43 @@ void print_conn(struct conn_opts connections[])
     int i;
     for ( i = 0; i < MAX_CONSOLE; i++ )
         if (connections[i].conn_used)
-            printf("qq: %i %s %s %s %s %s\n", connections[i].terminal, connections[i].hostaddr, connections[i].port, connections[i].user, connections[i].dbname, connections[i].password);
+            printf("qq: %s\n", connections[i].conninfo);
+}
+
+void prepare_conninfo(struct conn_opts connections[])
+{
+    int i;
+    for ( i = 0; i < MAX_CONSOLE; i++ )
+        if (connections[i].conn_used) {
+            strcat(connections[i].conninfo, "hostaddr=");
+            strcat(connections[i].conninfo, connections[i].hostaddr);
+            strcat(connections[i].conninfo, " port=");
+            strcat(connections[i].conninfo, connections[i].port);
+            strcat(connections[i].conninfo, " user=");
+            strcat(connections[i].conninfo, connections[i].user);
+            strcat(connections[i].conninfo, " dbname=");
+            strcat(connections[i].conninfo, connections[i].dbname);
+            strcat(connections[i].conninfo, " password=");
+            strcat(connections[i].conninfo, connections[i].password);
+        }
+}
+
+PGconn * do_connection(const char conninfo[])
+{
+    PGconn  *conn;
+    conn = PQconnectdb(conninfo);
+    if ( PQstatus(conn) == CONNECTION_BAD ) {
+        puts("We were unable to connect to the database");
+        return NULL;
+    }
+    else
+        return conn;
+}
+
+void close_connection(PGconn *conn)
+{
+    PQclear;
+    PQfinish(conn);
 }
 
 char * simple_prompt(const char *prompt, int maxlen, bool echo)
@@ -153,6 +190,9 @@ char * simple_prompt(const char *prompt, int maxlen, bool echo)
 
 int main (int argc, char *argv[])
 {
+    PGconn      *conn;
+    PGresult    *res;
+    int rec_count, row, col;
 /*
  * Проверяем наличие входных параметров:
  * 1) если есть, то запоминаем их в структуру коннекта
@@ -168,7 +208,21 @@ int main (int argc, char *argv[])
         if (create_pgbrc_conn(argc, argv, connections, 0) == PGBRC_READ_ERR)
             create_initial_conn(argc, argv, connections);
 
+    prepare_conninfo(connections);
     print_conn(connections);
+    conn = do_connection(connections[0].conninfo);
+    res = PQexec(conn, "select * from pgbench_accounts limit 5");
+    if ( PQresultStatus(res) != PGRES_TUPLES_OK )
+        puts("We didn't get any data.");
+    
+    rec_count = PQntuples(res);
+    for ( row = 0; row < rec_count; row++ ) {
+        for ( col = 0; col < 3; col++ ) {
+            printf("%s\t", PQgetvalue(res, row, col));
+        }
+        puts("");
+    }
 
+    close_connection(conn);
     return 0;
 }
