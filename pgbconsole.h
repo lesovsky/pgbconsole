@@ -10,6 +10,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include "libpq-fe.h"
+#include <ncurses.h>
 
 /* sizes and limits */
 #define BUFFERSIZE 4096

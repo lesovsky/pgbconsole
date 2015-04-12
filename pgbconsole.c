@@ -177,13 +177,17 @@ PGresult * do_query(PGconn *conn, char query[])
 void show_pools_output(PGresult *res)
 {
     int    rec_count, row, col;
+    move (1, 0);
     rec_count = PQntuples(res);
     for ( row = 0; row < rec_count; row++ ) {
         for ( col = 0; col < SHOW_POOLS_COLUMNS_NUM; col++ ) {
-            printf("%s\t", PQgetvalue(res, row, col));
+            printw("%-15s\t", PQgetvalue(res, row, col));
         }
-    puts("");
+    printw("\n");
     }
+    printw("\n");
+    refresh();
+    sleep(1);
 }
 
 char * simple_prompt(const char *prompt, int maxlen, bool echo)
@@ -234,12 +238,14 @@ int main (int argc, char *argv[])
     prepare_conninfo(connections);
     print_conn(connections);
     conn = do_connection(connections[0].conninfo);
+
+    initscr();
     while (1) {
         res = do_query(conn, "show pools");
         show_pools_output(res);
-        sleep(1);
-        printf("\n");
+//        sleep(1);
     }
+    endwin();
 
     close_connection(conn);
     return 0;
