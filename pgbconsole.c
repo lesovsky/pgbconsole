@@ -179,9 +179,12 @@ void show_pools_output(PGresult *res)
     int    rec_count, row, col;
     move (1, 0);
     rec_count = PQntuples(res);
+    attron(A_BOLD);
+    printw("%s\n", SHOW_POOLS_HEADER);
+    attroff(A_BOLD);
     for ( row = 0; row < rec_count; row++ ) {
         for ( col = 0; col < SHOW_POOLS_COLUMNS_NUM; col++ ) {
-            printw("%-15s\t", PQgetvalue(res, row, col));
+            printw("%12s", PQgetvalue(res, row, col));
         }
     printw("\n");
     }

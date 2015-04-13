@@ -33,6 +33,8 @@
 #define SHOW_POOLS_COLUMNS_NUM 10
 #define SHOW_POOLS_COLUMNS_NUM 10
 
+#define SHOW_POOLS_HEADER "    database        user   cl_active  cl_waiting   sv_active     sv_idle     sv_used   sv_tested    sv_login     maxwait"
+
 static char pgbrcpath[PATH_MAX];
 
 /* массив содержащий короткие параметры */
