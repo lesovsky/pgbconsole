@@ -1,5 +1,16 @@
 #include "pgbconsole.h"
 
+int key_is_pressed(void)             /* check were key is pressed */
+{
+    int ch = getch();
+    if (ch != ERR) {
+        ungetch(ch);
+        return 1;
+    }
+    else
+        return 0;
+}
+
 void create_initial_conn(int argc, char *argv[], struct conn_opts connections[])
 {
     int param, option_index;
@@ -219,6 +230,7 @@ char * simple_prompt(const char *prompt, int maxlen, bool echo)
     return destination;
 }
 
+
 int main (int argc, char *argv[])
 {
     PGconn      *conn;
@@ -243,12 +255,51 @@ int main (int argc, char *argv[])
     open_connections(connections);
 
     initscr();
-    while (1) {
-        res = do_query(conns, "show pools");
-        show_pools_output(res);
-    }
-    endwin();
+    cbreak();
+    noecho();
+    nodelay(stdscr, TRUE);
 
+    while (1) {
+        if (key_is_pressed()) {
+            switch (getch()) {
+                case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
+                    printw("Switch to another pgbouncer connection\n");
+                    break;
+                case 'N':
+                    printw("Create new connection\n");
+                    break;
+                case 'W':
+                    printw("Save connections into .pgbrc\n");
+                    break;
+                case 'L':
+                    printw("Open current pgbouncer log\n");
+                    break;
+                case 'M':
+                    printw("Reload current pgbouncer\n");
+                    break;
+                case 'P':
+                    printw("Pause current pgbouncer\n");
+                    break;
+                case 'R':
+                    printw("Resume current pgbouncer\n");
+                    break;
+                case 'S':
+                    printw("Suspend current pgbouncer\n");
+                    break;
+                default:
+                    printw("unknown command\n");
+                    break;
+            }
+        } else {
+            res = do_query(conns, "show pools");
+            show_pools_output(res);
+            refresh();
+            sleep(1);
+            clear();
+        }
+    }
+
+    endwin();
     close_connections(conns);
     return 0;
 }

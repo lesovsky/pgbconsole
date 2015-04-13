@@ -101,3 +101,4 @@ char * simple_prompt(const char *prompt, int maxlen, bool echo);
 PGresult * do_query(PGconn * conns[], char query[]);
 void open_connections(struct conn_opts connections[]);
 void close_connections(PGconn * conns[]);
+int key_is_pressed(void);                                       /* check were key is pressed */
