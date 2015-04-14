@@ -173,10 +173,10 @@ void close_connections(PGconn * conns[])
         PQfinish(conns[i]);
 }
 
-PGresult * do_query(PGconn * conns[], char query[])
+PGresult * do_query(PGconn *conn, char query[])
 {
     PGresult    *res;
-    res = PQexec(conns[0], "show pools");
+    res = PQexec(conn, "show pools");
     if ( PQresultStatus(res) != PGRES_TUPLES_OK ) {
         puts("We didn't get any data.");
         return NULL;
@@ -235,6 +235,8 @@ int main (int argc, char *argv[])
 {
     PGconn      *conn;
     PGresult    *res;
+    int console_no = 1, console_index = 0;              /* console number and indexes associated with indexes inside *conns[] */
+    int ch;
 /*
  * Проверяем наличие входных параметров:
  * 1) если есть, то запоминаем их в структуру коннекта
@@ -261,9 +263,11 @@ int main (int argc, char *argv[])
 
     while (1) {
         if (key_is_pressed()) {
-            switch (getch()) {
+            ch = getch();
+            switch (ch) {
                 case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
-                    printw("Switch to another pgbouncer connection\n");
+                    console_no = ch - '0', console_index = console_no - 1;        /* downshift by 1 for array index compatibility */
+                    printw("Switch to another pgbouncer connection (console %i)\n", console_no);
                     break;
                 case 'N':
                     printw("Create new connection\n");
@@ -291,7 +295,7 @@ int main (int argc, char *argv[])
                     break;
             }
         } else {
-            res = do_query(conns, "show pools");
+            res = do_query(conns[console_index], "show pools");     /* sent query to the connections using their indexes */
             show_pools_output(res);
             refresh();
             sleep(1);

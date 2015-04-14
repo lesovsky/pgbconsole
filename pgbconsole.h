@@ -98,7 +98,7 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], co
 void print_conn(struct conn_opts connections[]);
 void prepare_conninfo(struct conn_opts connections[]);          /* prepare conninfo string from conn_opts */
 char * simple_prompt(const char *prompt, int maxlen, bool echo);
-PGresult * do_query(PGconn * conns[], char query[]);
+PGresult * do_query(PGconn *conn, char query[]);
 void open_connections(struct conn_opts connections[]);
 void close_connections(PGconn * conns[]);
 int key_is_pressed(void);                                       /* check were key is pressed */
