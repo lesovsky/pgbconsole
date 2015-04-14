@@ -173,10 +173,28 @@ void close_connections(PGconn * conns[])
         PQfinish(conns[i]);
 }
 
-PGresult * do_query(PGconn *conn, char query[])
+PGresult * do_query(PGconn *conn, enum context query_context)
 {
     PGresult    *res;
-    res = PQexec(conn, "show pools");
+    char query[20];
+    switch (query_context) {
+        case pools: default:
+            strcpy(query, "show pools");
+            break;
+        case clients:
+            strcpy(query, "show clients");
+            break;
+        case servers:
+            strcpy(query, "show servers");
+            break;
+        case databases:
+            strcpy(query, "show databases");
+            break;
+        case stats:
+            strcpy(query, "show stats");
+            break;
+    }
+    res = PQexec(conn, query);
     if ( PQresultStatus(res) != PGRES_TUPLES_OK ) {
         puts("We didn't get any data.");
         return NULL;
@@ -185,16 +203,39 @@ PGresult * do_query(PGconn *conn, char query[])
         return res;
 }
 
-void show_pools_output(PGresult *res)
+void print_data(PGresult *res, enum context query_context)
 {
-    int    rec_count, row, col;
+    int    rec_count, row, col, n_cols;
     move (1, 0);
     rec_count = PQntuples(res);
-    attron(A_BOLD);
-    printw("%s\n", SHOW_POOLS_HEADER);
-    attroff(A_BOLD);
+
+    attron(A_BOLD);                                 /* print header with bold */
+    switch (query_context) {
+        case pools: default:
+            printw("%s\n", SHOW_POOLS_HEADER);
+            n_cols = SHOW_POOLS_COLUMNS_NUM;
+            break;
+        case clients:
+            printw("%s\n", SHOW_CLIENTS_HEADER);
+            n_cols = SHOW_CLIENTS_COLUMNS_NUM;
+            break;
+        case servers:
+            printw("%s\n", SHOW_SERVERS_HEADER);
+            n_cols = SHOW_SERVERS_COLUMNS_NUM;
+            break;
+        case databases:
+            printw("%s\n", SHOW_DATABASES_HEADER);
+            n_cols = SHOW_DATABASES_COLUMNS_NUM;
+            break;
+        case stats:
+            printw("%s\n", SHOW_STATS_HEADER);
+            n_cols = SHOW_STATS_COLUMNS_NUM;
+            break;
+    }
+    attroff(A_BOLD);                                /* disable bold */
+
     for ( row = 0; row < rec_count; row++ ) {
-        for ( col = 0; col < SHOW_POOLS_COLUMNS_NUM; col++ ) {
+        for ( col = 0; col < n_cols; col++ ) {
             printw("%12s", PQgetvalue(res, row, col));
         }
     printw("\n");
@@ -290,13 +331,33 @@ int main (int argc, char *argv[])
                 case 'S':
                     printw("Suspend current pgbouncer\n");
                     break;
+                case 'p':
+                    printw("Show pools\n");
+                    query_context = pools;
+                    break;
+                case 'c':
+                    printw("Show clients\n");
+                    query_context = clients;
+                    break;
+                case 's':
+                    printw("Show servers\n");
+                    query_context = servers;
+                    break;
+                case 'd':
+                    printw("Show databases\n");
+                    query_context = databases;
+                    break;
+                case 'a':
+                    printw("Show stats\n");
+                    query_context = stats;
+                    break;
                 default:
                     printw("unknown command\n");
                     break;
             }
         } else {
-            res = do_query(conns[console_index], "show pools");     /* sent query to the connections using their indexes */
-            show_pools_output(res);
+            res = do_query(conns[console_index], query_context);     /* sent query to the connections using their indexes */
+            print_data(res, query_context);
             refresh();
             sleep(1);
             clear();
