@@ -159,9 +159,11 @@ void open_connections(struct conn_opts connections[])
 {
     int i;
     for ( i = 0; i < MAX_CONSOLE; i++ ) {
-        conns[i] = PQconnectdb(connections[i].conninfo);
-        if ( PQstatus(conns[i]) == CONNECTION_BAD )
-            puts("We were unable to connect to the database");
+        if (connections[i].conn_used) {
+            conns[i] = PQconnectdb(connections[i].conninfo);
+            if ( PQstatus(conns[i]) == CONNECTION_BAD )
+                puts("We were unable to connect to the database");
+        }
     }
 }
 
@@ -205,38 +207,38 @@ PGresult * do_query(PGconn *conn, enum context query_context)
 
 void print_data(PGresult *res, enum context query_context)
 {
-    int    rec_count, row, col, n_cols;
+    int    row_count, col_count, row, col, i;
     move (1, 0);
-    rec_count = PQntuples(res);
+    row_count = PQntuples(res);
+    col_count = PQnfields(res);
+
+    struct colAttrs {
+        char name[20];
+        int width;
+    };
+    struct colAttrs *columns = (struct colAttrs *) malloc(sizeof(struct colAttrs) * col_count);
+
+    for ( col = 0, i = 0; col < col_count; col++, i++) {
+        strcpy(columns[i].name, PQfname(res, col));
+        int colname_len = strlen(PQfname(res, col));
+        int width = colname_len;
+        for (row = 0; row < row_count; row++ ) {
+            int val_len = strlen(PQgetvalue(res, row, col));
+            if ( val_len >= width )
+                width = val_len;
+        }
+        columns[i].width = width + 3;
+    }
 
     attron(A_BOLD);                                 /* print header with bold */
-    switch (query_context) {
-        case pools: default:
-            printw("%s\n", SHOW_POOLS_HEADER);
-            n_cols = SHOW_POOLS_COLUMNS_NUM;
-            break;
-        case clients:
-            printw("%s\n", SHOW_CLIENTS_HEADER);
-            n_cols = SHOW_CLIENTS_COLUMNS_NUM;
-            break;
-        case servers:
-            printw("%s\n", SHOW_SERVERS_HEADER);
-            n_cols = SHOW_SERVERS_COLUMNS_NUM;
-            break;
-        case databases:
-            printw("%s\n", SHOW_DATABASES_HEADER);
-            n_cols = SHOW_DATABASES_COLUMNS_NUM;
-            break;
-        case stats:
-            printw("%s\n", SHOW_STATS_HEADER);
-            n_cols = SHOW_STATS_COLUMNS_NUM;
-            break;
-    }
+    for ( col = 0, i = 0; col < col_count; col++, i++ )
+        printw("%-*s", columns[i].width, PQfname(res,col));
+    printw("\n");
     attroff(A_BOLD);                                /* disable bold */
 
-    for ( row = 0; row < rec_count; row++ ) {
-        for ( col = 0; col < n_cols; col++ ) {
-            printw("%12s", PQgetvalue(res, row, col));
+    for ( row = 0; row < row_count; row++ ) {
+        for ( col = 0, i = 0; col < col_count; col++, i++ ) {
+            printw("%-*s", columns[i].width, PQgetvalue(res, row, col));
         }
     printw("\n");
     }
@@ -307,8 +309,11 @@ int main (int argc, char *argv[])
             ch = getch();
             switch (ch) {
                 case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
-                    console_no = ch - '0', console_index = console_no - 1;        /* downshift by 1 for array index compatibility */
-                    printw("Switch to another pgbouncer connection (console %i)\n", console_no);
+                    if ( connections[ch - '0' - 1].conn_used ) {
+                        console_no = ch - '0', console_index = console_no - 1;
+                        printw("Switch to another pgbouncer connection (console %i)\n", console_no);
+                    } else                   
+                        printw("Do not switch because no connection associated (stay on console %i)\n", console_no);
                     break;
                 case 'N':
                     printw("Create new connection\n");
