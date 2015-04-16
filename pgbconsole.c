@@ -13,9 +13,25 @@ int key_is_pressed(void)             /* check were key is pressed */
 
 void create_initial_conn(int argc, char *argv[], struct conn_opts connections[])
 {
+    struct passwd *pw = getpwuid(getuid());             /* get current user info */
+
+    /* short options */
+    const char * short_options = "h:p:U:d:wW?";
+    
+    /* long options */
+    const struct option long_options[] = {
+        {"help", no_argument, NULL, '?'},
+        {"host", required_argument, NULL, 'h'},
+        {"port", required_argument, NULL, 'p'},
+        {"dbname", required_argument, NULL, 'd'},
+        {"no-password", no_argument, NULL, 'w'},
+        {"password", no_argument, NULL, 'W'},
+        {"user", required_argument, NULL, 'U'},
+        {NULL, 0, NULL, 0}
+    };
+
     int param, option_index;
     enum trivalue prompt_password = TRI_DEFAULT;
-    pw = getpwuid(getuid());     // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
 
     if (argc > 1)
     {
@@ -97,22 +113,26 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts connections[])
 
 int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], const int pos)
 {
-    FILE *fp;
-    struct stat statbuf;
+    FILE *fp;                                               /* file pointer for .pgbrc */
+    static char pgbrcpath[PATH_MAX];                        /* path where located .pgbrc */
+    struct stat statbuf;                                    /* .pgbrc metadata */
     char strbuf[BUFFERSIZE];
     int i = pos;
-    pw = getpwuid(getuid());
+    struct passwd *pw = getpwuid(getuid());                 /* current user info */
 
+    /* build path to .pgbrc file */
     strcpy(pgbrcpath, pw->pw_dir);
     strcat(pgbrcpath, "/");
     strcat(pgbrcpath, PGBRC_FILE);
 
+    /* check permissions, must be 600 */
     stat(pgbrcpath, &statbuf);
     if ( statbuf.st_mode & (S_IRWXG | S_IRWXO) ) {
         printf("WARNING: %s has wrong permissions.\n", pgbrcpath);
         return PGBRC_READ_ERR;
     }
 
+    /* read connections settings from .pgbrc */
     if ((fp = fopen(pgbrcpath, "r")) != NULL) {
         while (fgets(strbuf, 4096, fp) != 0) {
             sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:\n]", \
@@ -155,7 +175,7 @@ void prepare_conninfo(struct conn_opts connections[])
         }
 }
 
-void open_connections(struct conn_opts connections[])
+void open_connections(struct conn_opts connections[], PGconn * conns[])
 {
     int i;
     for ( i = 0; i < MAX_CONSOLE; i++ ) {
@@ -276,28 +296,32 @@ char * simple_prompt(const char *prompt, int maxlen, bool echo)
 
 int main (int argc, char *argv[])
 {
-    PGconn      *conn;
-    PGresult    *res;
+    PGresult    *res;                                   /* query result */
+    struct conn_opts conn_opts[MAX_CONSOLE] = { 
+        { 0, false, "", "", "", "", "", "" }, 
+        { 1, false, "", "", "", "", "", "" },
+        { 2, false, "", "", "", "", "", "" },
+        { 3, false, "", "", "", "", "", "" },
+        { 4, false, "", "", "", "", "", "" },
+        { 5, false, "", "", "", "", "", "" },
+        { 6, false, "", "", "", "", "", "" },
+        { 7, false, "", "", "", "", "", "" }};          /* connections options array - one element per options set */
+    PGconn * conns[8];                                  /* array for connections */
+    enum context query_context;                         /* context - query for pgbouncer */
     int console_no = 1, console_index = 0;              /* console number and indexes associated with indexes inside *conns[] */
-    int ch;
-/*
- * Проверяем наличие входных параметров:
- * 1) если есть, то запоминаем их в структуру коннекта
- * 2) проверяем наличие .pgbrc
- * 2.1 если .pgbrc есть формируем дополнительные структуры
- * 2.2 если .pgbrc нет, используем те параметр что были переданы в строке запуска
- * 3) если входных параметров нет, формируем подключение из дефолтных значений
- */
-    if ( argc > 1 ) {                                           /* input parameters specified */
-        create_initial_conn(argc, argv, connections);           /* save input parameters */
-        create_pgbrc_conn(argc, argv, connections, 1);
-    } else                                                     /* input parameters not specified */
-        if (create_pgbrc_conn(argc, argv, connections, 0) == PGBRC_READ_ERR)
-            create_initial_conn(argc, argv, connections);
+    int ch;                                             /* var for key code */
 
-    prepare_conninfo(connections);
-    print_conn(connections);
-    open_connections(connections);
+    /* parse input parameters if they are exists */
+    if ( argc > 1 ) {                                           /* input parameters specified */
+        create_initial_conn(argc, argv, conn_opts);           /* save input parameters */
+        create_pgbrc_conn(argc, argv, conn_opts, 1);
+    } else                                                     /* input parameters not specified */
+        if (create_pgbrc_conn(argc, argv, conn_opts, 0) == PGBRC_READ_ERR)
+            create_initial_conn(argc, argv, conn_opts);
+
+    prepare_conninfo(conn_opts);
+    print_conn(conn_opts);
+    open_connections(conn_opts, conns);
 
     initscr();
     cbreak();
@@ -309,7 +333,7 @@ int main (int argc, char *argv[])
             ch = getch();
             switch (ch) {
                 case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
-                    if ( connections[ch - '0' - 1].conn_used ) {
+                    if ( conn_opts[ch - '0' - 1].conn_used ) {
                         console_no = ch - '0', console_index = console_no - 1;
                         printw("Switch to another pgbouncer connection (console %i)\n", console_no);
                     } else                   

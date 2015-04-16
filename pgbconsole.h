@@ -26,23 +26,6 @@
 #define PGBRC_READ_OK 0
 #define PGBRC_READ_ERR 1
 
-static char pgbrcpath[PATH_MAX];
-
-/* массив содержащий короткие параметры */
-const char * short_options = "h:p:U:d:wW?";
-
-/* структура содержащая длинные параметры и их короткие аналоги */
-const struct option long_options[] = {
-    {"help", no_argument, NULL, '?'},
-    {"host", required_argument, NULL, 'h'},
-    {"port", required_argument, NULL, 'p'},
-    {"dbname", required_argument, NULL, 'd'},
-    {"no-password", no_argument, NULL, 'w'},
-    {"password", no_argument, NULL, 'W'},
-    {"user", required_argument, NULL, 'U'},
-    {NULL, 0, NULL, 0}
-};
-
 /*
  *  Структура которая описывает соединение, на основе структуры 
  *  будет создан массив структур для хранения параметров подключения.
@@ -67,25 +50,8 @@ enum trivalue
     TRI_YES
 };
 
-/* enum for query contexts */
+/* enum for query context */
 enum context { pools, clients, servers, databases, stats };
-enum context    query_context;
-
-/* массив структур который содержит параметры коннектов для всех консолей */
-struct conn_opts connections[MAX_CONSOLE] = {
-    { 0, false, "", "", "", "", "", "" },
-    { 1, false, "", "", "", "", "", "" },
-    { 2, false, "", "", "", "", "", "" },
-    { 3, false, "", "", "", "", "", "" },
-    { 4, false, "", "", "", "", "", "" },
-    { 5, false, "", "", "", "", "", "" },
-    { 6, false, "", "", "", "", "", "" },
-    { 7, false, "", "", "", "", "", "" }};
-
-PGconn * conns[8];        /* массив содержащий указатели на коннекты */
-
-/* Structures declaration. */
-static struct passwd *pw;                  // get current user info: pw_name,pw_uid,pw_gid,pw_dir,pw_shell.
 
 /* Functions prototypes */
 void create_initial_conn(int argc, char *argv[], struct conn_opts connections[]);     // обработка входных параметров и установка дефолтов
@@ -94,7 +60,7 @@ void print_conn(struct conn_opts connections[]);
 void prepare_conninfo(struct conn_opts connections[]);          /* prepare conninfo string from conn_opts */
 char * simple_prompt(const char *prompt, int maxlen, bool echo);
 PGresult * do_query(PGconn *conn, enum context query_context);
-void open_connections(struct conn_opts connections[]);
+void open_connections(struct conn_opts connections[], PGconn * conns[]);
 void close_connections(PGconn * conns[]);
 int key_is_pressed(void);                                       /* check were key is pressed */
 void print_data(PGresult *res, enum context query_context);   /* print query result */
