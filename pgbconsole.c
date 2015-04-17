@@ -225,10 +225,9 @@ PGresult * do_query(PGconn *conn, enum context query_context)
         return res;
 }
 
-void print_data(PGresult *res, enum context query_context)
+void print_data(PGresult *res, enum context query_context, WINDOW * window)
 {
     int    row_count, col_count, row, col, i;
-    move (1, 0);
     row_count = PQntuples(res);
     col_count = PQnfields(res);
 
@@ -250,21 +249,22 @@ void print_data(PGresult *res, enum context query_context)
         columns[i].width = width + 3;
     }
 
-    attron(A_BOLD);                                 /* print header with bold */
+    wclear(window);                                 /* clear window */
+
+    wattron(window, A_BOLD);                                 /* print header with bold */
     for ( col = 0, i = 0; col < col_count; col++, i++ )
-        printw("%-*s", columns[i].width, PQfname(res,col));
-    printw("\n");
-    attroff(A_BOLD);                                /* disable bold */
+        wprintw(window, "%-*s", columns[i].width, PQfname(res,col));
+    wprintw(window, "\n");
+    wattroff(window, A_BOLD);                                /* disable bold */
 
     for ( row = 0; row < row_count; row++ ) {
         for ( col = 0, i = 0; col < col_count; col++, i++ ) {
-            printw("%-*s", columns[i].width, PQgetvalue(res, row, col));
+            wprintw(window, "%-*s", columns[i].width, PQgetvalue(res, row, col));
         }
-    printw("\n");
+    wprintw(window, "\n");
     }
-    printw("\n");
-    refresh();
-    sleep(1);
+    wprintw(window, "\n");
+    wrefresh(window);
 }
 
 char * simple_prompt(const char *prompt, int maxlen, bool echo)
@@ -310,6 +310,8 @@ int main (int argc, char *argv[])
     enum context query_context;                         /* context - query for pgbouncer */
     int console_no = 1, console_index = 0;              /* console number and indexes associated with indexes inside *conns[] */
     int ch;                                             /* var for key code */
+    WINDOW  *w_summary, *w_cmdline, *w_answer;          /* main screen windows */
+
 
     /* parse input parameters if they are exists */
     if ( argc > 1 ) {                                           /* input parameters specified */
@@ -328,6 +330,10 @@ int main (int argc, char *argv[])
     noecho();
     nodelay(stdscr, TRUE);
 
+    w_summary = newwin(5, 0, 0, 0);
+    w_cmdline = newwin(1, 0, 6, 0);
+    w_answer = newwin(0, 0, 7, 0);
+
     while (1) {
         if (key_is_pressed()) {
             ch = getch();
@@ -335,61 +341,62 @@ int main (int argc, char *argv[])
                 case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
                     if ( conn_opts[ch - '0' - 1].conn_used ) {
                         console_no = ch - '0', console_index = console_no - 1;
-                        printw("Switch to another pgbouncer connection (console %i)\n", console_no);
+                        wprintw(w_cmdline, "Switch to another pgbouncer connection (console %i)", console_no);
                     } else                   
-                        printw("Do not switch because no connection associated (stay on console %i)\n", console_no);
+                        wprintw(w_cmdline, "Do not switch because no connection associated (stay on console %i)", console_no);
                     break;
                 case 'N':
-                    printw("Create new connection\n");
+                    wprintw(w_cmdline, "Create new connection");
                     break;
                 case 'W':
-                    printw("Save connections into .pgbrc\n");
+                    wprintw(w_cmdline, "Save connections into .pgbrc");
                     break;
                 case 'L':
-                    printw("Open current pgbouncer log\n");
+                    wprintw(w_cmdline, "Open current pgbouncer log");
                     break;
                 case 'M':
-                    printw("Reload current pgbouncer\n");
+                    wprintw(w_cmdline, "Reload current pgbouncer");
                     break;
                 case 'P':
-                    printw("Pause current pgbouncer\n");
+                    wprintw(w_cmdline, "Pause current pgbouncer");
                     break;
                 case 'R':
-                    printw("Resume current pgbouncer\n");
+                    wprintw(w_cmdline, "Resume current pgbouncer");
                     break;
                 case 'S':
-                    printw("Suspend current pgbouncer\n");
+                    wprintw(w_cmdline, "Suspend current pgbouncer");
                     break;
                 case 'p':
-                    printw("Show pools\n");
+                    wprintw(w_cmdline, "Show pools");
                     query_context = pools;
                     break;
                 case 'c':
-                    printw("Show clients\n");
+                    wprintw(w_cmdline, "Show clients");
                     query_context = clients;
                     break;
                 case 's':
-                    printw("Show servers\n");
+                    wprintw(w_cmdline, "Show servers");
                     query_context = servers;
                     break;
                 case 'd':
-                    printw("Show databases\n");
+                    wprintw(w_cmdline, "Show databases");
+                    wrefresh(w_cmdline);
                     query_context = databases;
                     break;
                 case 'a':
-                    printw("Show stats\n");
+                    wprintw(w_cmdline, "Show stats");
                     query_context = stats;
                     break;
                 default:
-                    printw("unknown command\n");
+                    wprintw(w_cmdline, "unknown command");
                     break;
             }
         } else {
             res = do_query(conns[console_index], query_context);     /* sent query to the connections using their indexes */
-            print_data(res, query_context);
-            refresh();
+            print_data(res, query_context, w_answer);
+            wrefresh(w_cmdline);
+            wclear(w_cmdline);
             sleep(1);
-            clear();
         }
     }
 

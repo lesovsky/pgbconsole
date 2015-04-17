@@ -63,4 +63,4 @@ PGresult * do_query(PGconn *conn, enum context query_context);
 void open_connections(struct conn_opts connections[], PGconn * conns[]);
 void close_connections(PGconn * conns[]);
 int key_is_pressed(void);                                       /* check were key is pressed */
-void print_data(PGresult *res, enum context query_context);   /* print query result */
+void print_data(PGresult *res, enum context query_context, WINDOW * window);   /* print query result */
