@@ -265,6 +265,8 @@ void print_data(PGresult *res, enum context query_context, WINDOW * window)
     }
     wprintw(window, "\n");
     wrefresh(window);
+
+    free(columns);
 }
 
 char * simple_prompt(const char *prompt, int maxlen, bool echo)
@@ -293,9 +295,67 @@ char * simple_prompt(const char *prompt, int maxlen, bool echo)
     return destination;
 }
 
+/*
+ *  Summary window functions
+ */
+
+void print_summary(WINDOW * window, char * progname)
+{
+    char *time = print_time();
+
+    wclear(window);
+    wprintw(window, "%s - %s, ", progname, time);
+    wprintw(window, "load average: %.2f, %.2f, %.2f", get_loadavg(1), get_loadavg(5), get_loadavg(15));
+    wrefresh(window);
+
+    free(time);
+}
+
+char * print_time()
+{
+    time_t rawtime;
+    struct tm *timeinfo;
+    char *strtime = (char *) malloc(sizeof(char) * 20);
+    
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
+    return strtime;
+}
+
+float get_loadavg(const int m)
+{
+    if ( m != 1 && m != 5 && m != 15 )
+        fprintf(stderr, "invalid value for load average\n");
+
+    float avg1, avg5, avg15;
+    FILE *loadavg_fd;
+    char *loadavg = (char *) malloc(sizeof(char) * 20);
+
+    if ((loadavg_fd = fopen(LOADAVG_FILE, "r")) == NULL) {
+        fprintf(stderr, "can't open %s\n", LOADAVG_FILE);
+        exit(EXIT_FAILURE);
+    } else {
+        fscanf(loadavg_fd, "%f %f %f", &avg1, &avg5, &avg15);
+        fclose(loadavg_fd);
+    }
+
+    switch (m) {
+        case 1: return avg1; break;
+        case 5: return avg5; break;
+        case 15: return avg15; break;
+    }
+}
+
+/*
+ *
+ *  Main 
+ *
+ */
 
 int main (int argc, char *argv[])
 {
+    char * progname = argv[0];
     PGresult    *res;                                   /* query result */
     struct conn_opts conn_opts[MAX_CONSOLE] = { 
         { 0, false, "", "", "", "", "", "" }, 
@@ -331,8 +391,8 @@ int main (int argc, char *argv[])
     nodelay(stdscr, TRUE);
 
     w_summary = newwin(5, 0, 0, 0);
-    w_cmdline = newwin(1, 0, 6, 0);
-    w_answer = newwin(0, 0, 7, 0);
+    w_cmdline = newwin(1, 0, 5, 0);
+    w_answer = newwin(0, 0, 6, 0);
 
     while (1) {
         if (key_is_pressed()) {
@@ -393,6 +453,7 @@ int main (int argc, char *argv[])
             }
         } else {
             res = do_query(conns[console_index], query_context);     /* sent query to the connections using their indexes */
+            print_summary(w_summary, progname);
             print_data(res, query_context, w_answer);
             wrefresh(w_cmdline);
             wclear(w_cmdline);

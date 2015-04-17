@@ -1,5 +1,6 @@
 #include <getopt.h>
 #include <limits.h>
+#include <ncurses.h>
 #include <pwd.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -8,9 +9,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 #include "libpq-fe.h"
-#include <ncurses.h>
 
 /* sizes and limits */
 #define BUFFERSIZE 4096
@@ -25,6 +26,8 @@
 #define PGBRC_FILE ".pgbrc"
 #define PGBRC_READ_OK 0
 #define PGBRC_READ_ERR 1
+
+#define LOADAVG_FILE "/proc/loadavg"
 
 /*
  *  Структура которая описывает соединение, на основе структуры 
@@ -64,3 +67,7 @@ void open_connections(struct conn_opts connections[], PGconn * conns[]);
 void close_connections(PGconn * conns[]);
 int key_is_pressed(void);                                       /* check were key is pressed */
 void print_data(PGresult *res, enum context query_context, WINDOW * window);   /* print query result */
+
+void print_summary(WINDOW * window, char * progname);                            /* draw summary window */
+char * print_time();                                          /* print current time */
+float get_loadavg();                                           /* get load average values */
