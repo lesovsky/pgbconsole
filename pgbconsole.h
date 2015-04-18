@@ -17,23 +17,21 @@
 #define BUFFERSIZE 4096
 #define MAX_CONSOLE 8
 
-/* значения по-умолчанию */
+/* connectins defaults */
 #define DEFAULT_HOSTADDR "127.0.0.1"
-#define DEFAULT_PORT "5432"
+#define DEFAULT_PORT "6432"
 #define DEFAULT_USER "postgres"
-#define DEFAULT_DBNAME "postgres"
+#define DEFAULT_DBNAME "pgbuncer"
 
+#define LOADAVG_FILE "/proc/loadavg"
 #define PGBRC_FILE ".pgbrc"
 #define PGBRC_READ_OK 0
 #define PGBRC_READ_ERR 1
 
-#define LOADAVG_FILE "/proc/loadavg"
-
 /*
- *  Структура которая описывает соединение, на основе структуры 
- *  будет создан массив структур для хранения параметров подключения.
+ *  Struct which define connection options
  */
-struct conn_opts
+struct conn_opts_struct
 {
     int terminal;
     bool conn_used;
@@ -57,17 +55,17 @@ enum trivalue
 enum context { pools, clients, servers, databases, stats };
 
 /* Functions prototypes */
-void create_initial_conn(int argc, char *argv[], struct conn_opts connections[]);     // обработка входных параметров и установка дефолтов
-int create_pgbrc_conn(int argc, char *argv[], struct conn_opts connections[], const int pos);
-void print_conn(struct conn_opts connections[]);
-void prepare_conninfo(struct conn_opts connections[]);          /* prepare conninfo string from conn_opts */
+void create_initial_conn(int argc, char *argv[], struct conn_opts_struct conn_opts[]);     // обработка входных параметров и установка дефолтов
+int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct conn_opts[], const int pos);
+void print_conn(struct conn_opts_struct conn_opts[]);
+void prepare_conninfo(struct conn_opts_struct conn_opts[]);          /* prepare conninfo string from conn_opts */
 char * simple_prompt(const char *prompt, int maxlen, bool echo);
 PGresult * do_query(PGconn *conn, enum context query_context);
-void open_connections(struct conn_opts connections[], PGconn * conns[]);
+void open_connections(struct conn_opts_struct conn_opts[], PGconn * conns[]);
 void close_connections(PGconn * conns[]);
 int key_is_pressed(void);                                       /* check were key is pressed */
-void print_data(PGresult *res, enum context query_context, WINDOW * window);   /* print query result */
 
+void print_data(PGresult *res, enum context query_context, WINDOW * window);   /* print query result */
 void print_summary(WINDOW * window, char * progname);                            /* draw summary window */
 char * print_time();                                          /* print current time */
 float get_loadavg();                                           /* get load average values */
