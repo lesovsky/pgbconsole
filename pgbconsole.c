@@ -225,7 +225,7 @@ PGresult * do_query(PGconn *conn, enum context query_context)
         return res;
 }
 
-void print_data(PGresult *res, enum context query_context, WINDOW * window)
+void print_data(WINDOW * window, enum context query_context, PGresult *res)
 {
     int    row_count, col_count, row, col, i;
     row_count = PQntuples(res);
@@ -298,18 +298,6 @@ char * simple_prompt(const char *prompt, int maxlen, bool echo)
 /*
  *  Summary window functions
  */
-
-void print_summary(WINDOW * window, char * progname)
-{
-    char *time = print_time();
-
-    wclear(window);
-    wprintw(window, "%s - %s, ", progname, time);
-    wprintw(window, "load average: %.2f, %.2f, %.2f", get_loadavg(1), get_loadavg(5), get_loadavg(15));
-    wrefresh(window);
-
-    free(time);
-}
 
 char * print_time()
 {
@@ -391,8 +379,8 @@ int main (int argc, char *argv[])
     nodelay(stdscr, TRUE);
 
     w_summary = newwin(5, 0, 0, 0);
-    w_cmdline = newwin(1, 0, 5, 0);
-    w_answer = newwin(0, 0, 6, 0);
+    w_cmdline = newwin(1, 0, 4, 0);
+    w_answer = newwin(0, 0, 5, 0);
 
     while (1) {
         if (key_is_pressed()) {
@@ -440,7 +428,6 @@ int main (int argc, char *argv[])
                     break;
                 case 'd':
                     wprintw(w_cmdline, "Show databases");
-                    wrefresh(w_cmdline);
                     query_context = databases;
                     break;
                 case 'a':
@@ -453,8 +440,18 @@ int main (int argc, char *argv[])
             }
         } else {
             res = do_query(conns[console_index], query_context);     /* sent query to the connections using their indexes */
-            print_summary(w_summary, progname);
-            print_data(res, query_context, w_answer);
+            char *time = print_time();
+            wclear(w_summary);
+            wprintw(w_summary, "%s - %s, ", progname, time);
+            wprintw(w_summary, "load average: %.2f, %.2f, %.2f\n", get_loadavg(1), get_loadavg(5), get_loadavg(15));
+            wprintw(w_summary, "%%Cpu: --.- us, --.- sy, --.- ni, --.- id, --.- wa, --.- hi, --.- si\n");
+            wprintw(w_summary, "conninfo: %s:%s %s@%s\n", \
+                conn_opts[console_index].hostaddr, conn_opts[console_index].port, \
+                conn_opts[console_index].user, conn_opts[console_index].dbname);
+            wprintw(w_summary, "pgbouncer pid: -----, pgbouncer cpu usage: --.- us, --.- sy, network: -- in, -- out\n");
+            wrefresh(w_summary);
+
+            print_data(w_answer, query_context, res);
             wrefresh(w_cmdline);
             wclear(w_cmdline);
             sleep(1);

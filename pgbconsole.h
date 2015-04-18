@@ -65,7 +65,6 @@ void open_connections(struct conn_opts_struct conn_opts[], PGconn * conns[]);
 void close_connections(PGconn * conns[]);
 int key_is_pressed(void);                                       /* check were key is pressed */
 
-void print_data(PGresult *res, enum context query_context, WINDOW * window);   /* print query result */
-void print_summary(WINDOW * window, char * progname);                            /* draw summary window */
+void print_data(WINDOW * window, enum context query_context, PGresult *res);   /* print query result */
 char * print_time();                                          /* print current time */
 float get_loadavg();                                           /* get load average values */
