@@ -336,6 +336,165 @@ float get_loadavg(const int m)
 }
 
 /*
+ * CPU usage functions
+ */
+
+void init_stats(struct stats_cpu_struct *st_cpu[])
+{
+    int i;
+    /* Allocate structures for CPUs "all" and 0 */
+    for (i = 0; i < 2; i++) {
+        if ((st_cpu[i] = (struct stats_cpu_struct *) malloc(STATS_CPU_SIZE * 2)) == NULL) {
+            perror("malloc");
+            exit(4);
+        }
+        memset(st_cpu[i], 0, STATS_CPU_SIZE * 2);
+    }
+}
+
+void get_HZ(void)
+{
+        long ticks;
+
+        if ((ticks = sysconf(_SC_CLK_TCK)) == -1) {
+                perror("sysconf");
+        }
+
+        hz = (unsigned int) ticks;
+}
+
+void read_uptime(unsigned long long *uptime)
+{
+        FILE *fp;
+        char line[128];
+        unsigned long up_sec, up_cent;
+
+        if ((fp = fopen(UPTIME_FILE, "r")) == NULL)
+                return;
+
+        if (fgets(line, sizeof(line), fp) == NULL) {
+                fclose(fp);
+                return;
+        }
+
+        sscanf(line, "%lu.%lu", &up_sec, &up_cent);
+        *uptime = (unsigned long long) up_sec * HZ +
+                  (unsigned long long) up_cent * HZ / 100;
+        fclose(fp);
+}
+
+void read_stat_cpu(struct stats_cpu_struct *st_cpu, int nbr,
+                    unsigned long long *uptime, unsigned long long *uptime0)
+{
+    FILE *stat_fp;
+    struct stats_cpu_struct *st_cpu_i;
+    struct stats_cpu_struct sc;
+    char line[8192];                /* line length for reading /proc/stat */
+    int proc_nb;                    /* proc number such as cpuX from /proc/stat */
+
+    if ((stat_fp = fopen(STAT_FILE, "r")) == NULL) {
+        fprintf(stderr, "Cannot open %s: %s\n", STAT_FILE, strerror(errno));
+        exit(2);
+    }
+
+    while ( (fgets(line, sizeof(line), stat_fp)) != NULL ) {
+        if (!strncmp(line, "cpu ", 4)) {
+            memset(st_cpu, 0, STATS_CPU_SIZE);
+            sscanf(line + 5, "%llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+                &st_cpu->cpu_user,
+                &st_cpu->cpu_nice,
+                &st_cpu->cpu_sys,
+                &st_cpu->cpu_idle,
+                &st_cpu->cpu_iowait,
+                &st_cpu->cpu_steal,
+                &st_cpu->cpu_hardirq,
+                &st_cpu->cpu_softirq,
+                &st_cpu->cpu_guest,
+                &st_cpu->cpu_guest_nice);
+                *uptime = st_cpu->cpu_user + st_cpu->cpu_nice +
+                    st_cpu->cpu_sys + st_cpu->cpu_idle +
+                    st_cpu->cpu_iowait + st_cpu->cpu_steal +
+                    st_cpu->cpu_hardirq + st_cpu->cpu_softirq +
+                    st_cpu->cpu_guest + st_cpu->cpu_guest_nice;
+                printf("read_stat_cpu: uptime = %llu\n", *uptime);
+
+        } else if (!strncmp(line, "cpu", 3)) {
+            if (nbr > 1) {
+                memset(&sc, 0, STATS_CPU_SIZE);
+                sscanf(line + 3, "%d %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+                    &proc_nb,
+                    &sc.cpu_user,
+                    &sc.cpu_nice,
+                    &sc.cpu_sys,
+                    &sc.cpu_idle,
+                    &sc.cpu_iowait,
+                    &sc.cpu_steal,
+                    &sc.cpu_hardirq,
+                    &sc.cpu_softirq,
+                    &sc.cpu_guest,
+                    &sc.cpu_guest_nice);
+
+                    if (proc_nb < (nbr - 1)) {
+                        st_cpu_i = st_cpu + proc_nb + 1;
+                        *st_cpu_i = sc;
+                    }
+
+                    if (!proc_nb && !*uptime0) {
+                        *uptime0 = sc.cpu_user + sc.cpu_nice   +
+                                sc.cpu_sys     + sc.cpu_idle   +
+                                sc.cpu_iowait  + sc.cpu_steal  +
+                                sc.cpu_hardirq + sc.cpu_softirq;
+                        printf("read_stat_cpu: uptime0 = %llu\n", *uptime0);
+                    }
+            }
+        } 
+    }
+    fclose(stat_fp);
+}
+
+unsigned long long get_interval(unsigned long long prev_uptime,
+                                unsigned long long curr_uptime)
+{
+        unsigned long long itv;
+
+        /* prev_time=0 when displaying stats since system startup */
+        itv = curr_uptime - prev_uptime;
+
+        if (!itv) {     /* Paranoia checking */
+                itv = 1;
+        }
+
+        return itv;
+}
+
+double ll_sp_value(unsigned long long value1, unsigned long long value2, unsigned long long itv)
+{
+        if (value2 < value1)
+                return (double) 0;
+        else
+                return SP_VALUE(value1, value2, itv);
+}
+
+void write_cpu_stat(WINDOW * window, struct stats_cpu_struct *st_cpu[], int curr, unsigned long long itv)
+{
+        wprintw(window, "%%Cpu: %4.1f us, %4.1f sy, %4.1f ni, %4.1f id, %4.1f wa, %4.1f hi, %4.1f si, %4.1f st\n",
+               ll_sp_value(st_cpu[!curr]->cpu_user,   st_cpu[curr]->cpu_user,   itv),
+               ll_sp_value(st_cpu[!curr]->cpu_sys + st_cpu[!curr]->cpu_softirq +
+                           st_cpu[!curr]->cpu_hardirq,
+                           st_cpu[curr]->cpu_sys + st_cpu[curr]->cpu_softirq +
+                           st_cpu[curr]->cpu_hardirq, itv),
+               ll_sp_value(st_cpu[!curr]->cpu_nice,   st_cpu[curr]->cpu_nice,   itv),
+               (st_cpu[curr]->cpu_idle < st_cpu[!curr]->cpu_idle) ?
+               0.0 :
+               ll_sp_value(st_cpu[!curr]->cpu_idle,   st_cpu[curr]->cpu_idle,   itv),
+               ll_sp_value(st_cpu[!curr]->cpu_iowait, st_cpu[curr]->cpu_iowait, itv),
+               ll_sp_value(st_cpu[!curr]->cpu_hardirq, st_cpu[curr]->cpu_hardirq, itv),
+               ll_sp_value(st_cpu[!curr]->cpu_softirq, st_cpu[curr]->cpu_softirq, itv));
+               ll_sp_value(st_cpu[!curr]->cpu_steal,  st_cpu[curr]->cpu_steal,  itv),
+        wrefresh(window);
+}
+
+/*
  *
  *  Main 
  *
@@ -360,7 +519,12 @@ int main (int argc, char *argv[])
     int ch;                                             /* var for key code */
     WINDOW  *w_summary, *w_cmdline, *w_answer;          /* main screen windows */
 
-
+    struct stats_cpu_struct *st_cpu[2];
+    unsigned long long uptime[2]  = {0, 0};
+    unsigned long long uptime0[2] = {0, 0};
+    int curr = 1;
+    unsigned long long itv;
+    
     /* parse input parameters if they are exists */
     if ( argc > 1 ) {                                           /* input parameters specified */
         create_initial_conn(argc, argv, conn_opts);           /* save input parameters */
@@ -368,6 +532,9 @@ int main (int argc, char *argv[])
     } else                                                     /* input parameters not specified */
         if (create_pgbrc_conn(argc, argv, conn_opts, 0) == PGBRC_READ_ERR)
             create_initial_conn(argc, argv, conn_opts);
+
+    init_stats(st_cpu);
+    get_HZ();
 
     prepare_conninfo(conn_opts);
     print_conn(conn_opts);
@@ -444,7 +611,12 @@ int main (int argc, char *argv[])
             wclear(w_summary);
             wprintw(w_summary, "%s - %s, ", progname, time);
             wprintw(w_summary, "load average: %.2f, %.2f, %.2f\n", get_loadavg(1), get_loadavg(5), get_loadavg(15));
-            wprintw(w_summary, "%%Cpu: --.- us, --.- sy, --.- ni, --.- id, --.- wa, --.- hi, --.- si\n");
+            read_stat_cpu(st_cpu[curr], 2, &(uptime[curr]), &(uptime0[curr]));
+            itv = get_interval(uptime[!curr], uptime[curr]);
+            write_cpu_stat(w_summary, st_cpu, curr, itv);
+            itv = get_interval(uptime0[!curr], uptime0[curr]);
+            curr ^= 1;
+
             wprintw(w_summary, "conninfo: %s:%s %s@%s\n", \
                 conn_opts[console_index].hostaddr, conn_opts[console_index].port, \
                 conn_opts[console_index].user, conn_opts[console_index].dbname);
