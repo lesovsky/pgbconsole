@@ -98,3 +98,4 @@ void read_stat_cpu(struct stats_cpu_struct *st_cpu, int nbr, unsigned long long 
 unsigned long long get_interval(unsigned long long prev_uptime, unsigned long long curr_uptime);
 double ll_sp_value(unsigned long long value1, unsigned long long value2, unsigned long long itv);
 void write_cpu_stat(WINDOW * window, struct stats_cpu_struct *st_cpu[], int curr, unsigned long long itv);
+void print_cpu_usage(WINDOW * window, struct stats_cpu_struct *st_cpu[]);

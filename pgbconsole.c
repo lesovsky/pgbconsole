@@ -494,6 +494,23 @@ void write_cpu_stat(WINDOW * window, struct stats_cpu_struct *st_cpu[], int curr
         wrefresh(window);
 }
 
+void print_cpu_usage(WINDOW * window, struct stats_cpu_struct *st_cpu[])
+{
+    static unsigned long long uptime[2]  = {0, 0};
+    static unsigned long long uptime0[2] = {0, 0};
+    static int curr = 1;
+    static unsigned long long itv;
+
+    uptime0[curr] = 0;
+    read_uptime(&(uptime0[curr]));
+    read_stat_cpu(st_cpu[curr], 2, &(uptime[curr]), &(uptime0[curr]));
+    itv = get_interval(uptime[!curr], uptime[curr]);
+    write_cpu_stat(window, st_cpu, curr, itv);
+    itv = get_interval(uptime0[!curr], uptime0[curr]);
+    curr ^= 1;
+}
+
+
 /*
  *
  *  Main 
@@ -518,12 +535,7 @@ int main (int argc, char *argv[])
     int console_no = 1, console_index = 0;              /* console number and indexes associated with indexes inside *conns[] */
     int ch;                                             /* var for key code */
     WINDOW  *w_summary, *w_cmdline, *w_answer;          /* main screen windows */
-
     struct stats_cpu_struct *st_cpu[2];
-    unsigned long long uptime[2]  = {0, 0};
-    unsigned long long uptime0[2] = {0, 0};
-    int curr = 1;
-    unsigned long long itv;
     
     /* parse input parameters if they are exists */
     if ( argc > 1 ) {                                           /* input parameters specified */
@@ -611,12 +623,7 @@ int main (int argc, char *argv[])
             wclear(w_summary);
             wprintw(w_summary, "%s - %s, ", progname, time);
             wprintw(w_summary, "load average: %.2f, %.2f, %.2f\n", get_loadavg(1), get_loadavg(5), get_loadavg(15));
-            read_stat_cpu(st_cpu[curr], 2, &(uptime[curr]), &(uptime0[curr]));
-            itv = get_interval(uptime[!curr], uptime[curr]);
-            write_cpu_stat(w_summary, st_cpu, curr, itv);
-            itv = get_interval(uptime0[!curr], uptime0[curr]);
-            curr ^= 1;
-
+            print_cpu_usage(w_summary, st_cpu);
             wprintw(w_summary, "conninfo: %s:%s %s@%s\n", \
                 conn_opts[console_index].hostaddr, conn_opts[console_index].port, \
                 conn_opts[console_index].user, conn_opts[console_index].dbname);
