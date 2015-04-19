@@ -30,7 +30,6 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
         strcpy(conn_opts[i]->password, "");
         strcpy(conn_opts[i]->conninfo, "");
     }
-    printf("init_conn_opts: finish func\n");
 }
 
 void create_initial_conn(int argc, char *argv[], struct conn_opts_struct * conn_opts[])
@@ -153,8 +152,6 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct * conn_opt
         printf("WARNING: %s has wrong permissions.\n", pgbrcpath);
         return PGBRC_READ_ERR;
     }
-
-    printf("create_pgbrc_conn: before read .pgbrc\n");
 
     /* read connections settings from .pgbrc */
     if ((fp = fopen(pgbrcpath, "r")) != NULL) {
