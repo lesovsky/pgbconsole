@@ -11,7 +11,29 @@ int key_is_pressed(void)             /* check were key is pressed */
         return 0;
 }
     
-void create_initial_conn(int argc, char *argv[], struct conn_opts_struct conn_opts[])
+void init_conn_opts(struct conn_opts_struct *conn_opts[])
+{
+    int i;
+    /* Allocate structures for connection options */
+    for (i = 0; i < MAX_CONSOLE; i++) {
+        if ((conn_opts[i] = (struct conn_opts_struct *) malloc(CONN_OPTS_SIZE * 2)) == NULL) {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+        memset(conn_opts[i], 0, CONN_OPTS_SIZE * 2);
+        conn_opts[i]->terminal = i;
+        conn_opts[i]->conn_used = false;
+        strcpy(conn_opts[i]->hostaddr, "");
+        strcpy(conn_opts[i]->port, "");
+        strcpy(conn_opts[i]->user, "");
+        strcpy(conn_opts[i]->dbname, "");
+        strcpy(conn_opts[i]->password, "");
+        strcpy(conn_opts[i]->conninfo, "");
+    }
+    printf("init_conn_opts: finish func\n");
+}
+
+void create_initial_conn(int argc, char *argv[], struct conn_opts_struct * conn_opts[])
 {
     struct passwd *pw = getpwuid(getuid());             /* get current user info */
 
@@ -52,16 +74,16 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts_struct conn_op
         switch(param)
         {
             case 'h': 
-                strcpy(conn_opts[0].hostaddr, optarg);
+                strcpy(conn_opts[0]->hostaddr, optarg);
                 break;
             case 'p':
-                strcpy(conn_opts[0].port, optarg);
+                strcpy(conn_opts[0]->port, optarg);
                 break;
             case 'U':
-                strcpy(conn_opts[0].user, optarg);
+                strcpy(conn_opts[0]->user, optarg);
                 break;
             case 'd':
-                strcpy(conn_opts[0].dbname, optarg);
+                strcpy(conn_opts[0]->dbname, optarg);
                 break;
             case 'w':
                 prompt_password = TRI_NO;
@@ -78,40 +100,40 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts_struct conn_op
 
     while (argc - optind >= 1)
     {
-        if ( (argc - optind > 1) && strlen(conn_opts[0].user) == 0 && strlen(conn_opts[0].dbname) == 0 )
-            strcpy(conn_opts[0].user, argv[optind]);
-        else if ( (argc - optind >= 1) && strlen(conn_opts[0].dbname) == 0 )
-            strcpy(conn_opts[0].dbname, argv[optind]);
+        if ( (argc - optind > 1) && strlen(conn_opts[0]->user) == 0 && strlen(conn_opts[0]->dbname) == 0 )
+            strcpy(conn_opts[0]->user, argv[optind]);
+        else if ( (argc - optind >= 1) && strlen(conn_opts[0]->dbname) == 0 )
+            strcpy(conn_opts[0]->dbname, argv[optind]);
         else
             fprintf(stderr, "%s: warning: extra command-line argument \"%s\" ignored\n", argv[0], argv[optind]);
 
         optind++;
     }    
 
-    if ( strlen(conn_opts[0].hostaddr) == 0 )
-        strcpy(conn_opts[0].hostaddr, DEFAULT_HOSTADDR);
+    if ( strlen(conn_opts[0]->hostaddr) == 0 )
+        strcpy(conn_opts[0]->hostaddr, DEFAULT_HOSTADDR);
 
-    if ( strlen(conn_opts[0].port) == 0 )
-        strcpy(conn_opts[0].port, DEFAULT_PORT);
+    if ( strlen(conn_opts[0]->port) == 0 )
+        strcpy(conn_opts[0]->port, DEFAULT_PORT);
 
-    if ( strlen(conn_opts[0].user) == 0 ) {
-        strcpy(conn_opts[0].user, pw->pw_name);
+    if ( strlen(conn_opts[0]->user) == 0 ) {
+        strcpy(conn_opts[0]->user, pw->pw_name);
     }
 
     if ( prompt_password == TRI_YES )
-        strcpy(conn_opts[0].password, simple_prompt("Password: ", 100, false));
+        strcpy(conn_opts[0]->password, simple_prompt("Password: ", 100, false));
 
-    if ( strlen(conn_opts[0].dbname) == 0 && strlen(conn_opts[0].user) == 0 ) {
-        strcpy(conn_opts[0].user, pw->pw_name);
-        strcpy(conn_opts[0].dbname, DEFAULT_DBNAME);
+    if ( strlen(conn_opts[0]->dbname) == 0 && strlen(conn_opts[0]->user) == 0 ) {
+        strcpy(conn_opts[0]->user, pw->pw_name);
+        strcpy(conn_opts[0]->dbname, DEFAULT_DBNAME);
     }
-    else if ( strlen(conn_opts[0].user) != 0 && strlen(conn_opts[0].dbname) == 0 )
-        strcpy(conn_opts[0].dbname, conn_opts[0].user);
+    else if ( strlen(conn_opts[0]->user) != 0 && strlen(conn_opts[0]->dbname) == 0 )
+        strcpy(conn_opts[0]->dbname, conn_opts[0]->user);
 
-    conn_opts[0].conn_used = true;
+    conn_opts[0]->conn_used = true;
 }
 
-int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct conn_opts[], const int pos)
+int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct * conn_opts[], const int pos)
 {
     FILE *fp;                                               /* file pointer for .pgbrc */
     static char pgbrcpath[PATH_MAX];                        /* path where located .pgbrc */
@@ -132,13 +154,15 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct conn_opts[
         return PGBRC_READ_ERR;
     }
 
+    printf("create_pgbrc_conn: before read .pgbrc\n");
+
     /* read connections settings from .pgbrc */
     if ((fp = fopen(pgbrcpath, "r")) != NULL) {
         while (fgets(strbuf, 4096, fp) != 0) {
-            sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:\n]", \
-                conn_opts[i].hostaddr, conn_opts[i].port, conn_opts[i].dbname, conn_opts[i].user, conn_opts[i].password);
-            conn_opts[i].terminal = i;
-            conn_opts[i].conn_used = true;
+            sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:\n]",
+                conn_opts[i]->hostaddr, conn_opts[i]->port, conn_opts[i]->dbname, conn_opts[i]->user, conn_opts[i]->password);
+            conn_opts[i]->terminal = i;
+            conn_opts[i]->conn_used = true;
             i++;
         }
         fclose(fp);
@@ -149,38 +173,38 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct conn_opts[
     }
 }
 
-void print_conn(struct conn_opts_struct conn_opts[])
+void print_conn(struct conn_opts_struct * conn_opts[])
 {
     int i;
     for ( i = 0; i < MAX_CONSOLE; i++ )
-        if (conn_opts[i].conn_used)
-            printf("qq: %s\n", conn_opts[i].conninfo);
+        if (conn_opts[i]->conn_used)
+            printf("qq: %s\n", conn_opts[i]->conninfo);
 }
 
-void prepare_conninfo(struct conn_opts_struct conn_opts[])
+void prepare_conninfo(struct conn_opts_struct * conn_opts[])
 {
     int i;
     for ( i = 0; i < MAX_CONSOLE; i++ )
-        if (conn_opts[i].conn_used) {
-            strcat(conn_opts[i].conninfo, "hostaddr=");
-            strcat(conn_opts[i].conninfo, conn_opts[i].hostaddr);
-            strcat(conn_opts[i].conninfo, " port=");
-            strcat(conn_opts[i].conninfo, conn_opts[i].port);
-            strcat(conn_opts[i].conninfo, " user=");
-            strcat(conn_opts[i].conninfo, conn_opts[i].user);
-            strcat(conn_opts[i].conninfo, " dbname=");
-            strcat(conn_opts[i].conninfo, conn_opts[i].dbname);
-            strcat(conn_opts[i].conninfo, " password=");
-            strcat(conn_opts[i].conninfo, conn_opts[i].password);
+        if (conn_opts[i]->conn_used) {
+            strcat(conn_opts[i]->conninfo, "hostaddr=");
+            strcat(conn_opts[i]->conninfo, conn_opts[i]->hostaddr);
+            strcat(conn_opts[i]->conninfo, " port=");
+            strcat(conn_opts[i]->conninfo, conn_opts[i]->port);
+            strcat(conn_opts[i]->conninfo, " user=");
+            strcat(conn_opts[i]->conninfo, conn_opts[i]->user);
+            strcat(conn_opts[i]->conninfo, " dbname=");
+            strcat(conn_opts[i]->conninfo, conn_opts[i]->dbname);
+            strcat(conn_opts[i]->conninfo, " password=");
+            strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
         }
 }
 
-void open_connections(struct conn_opts_struct conn_opts[], PGconn * conns[])
+void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
 {
     int i;
     for ( i = 0; i < MAX_CONSOLE; i++ ) {
-        if (conn_opts[i].conn_used) {
-            conns[i] = PQconnectdb(conn_opts[i].conninfo);
+        if (conn_opts[i]->conn_used) {
+            conns[i] = PQconnectdb(conn_opts[i]->conninfo);
             if ( PQstatus(conns[i]) == CONNECTION_BAD )
                 puts("We were unable to connect to the database");
         }
@@ -521,15 +545,7 @@ int main (int argc, char *argv[])
 {
     char * progname = argv[0];
     PGresult    *res;                                   /* query result */
-    struct conn_opts_struct conn_opts[MAX_CONSOLE] = { 
-        { 0, false, "", "", "", "", "", "" }, 
-        { 1, false, "", "", "", "", "", "" },
-        { 2, false, "", "", "", "", "", "" },
-        { 3, false, "", "", "", "", "", "" },
-        { 4, false, "", "", "", "", "", "" },
-        { 5, false, "", "", "", "", "", "" },
-        { 6, false, "", "", "", "", "", "" },
-        { 7, false, "", "", "", "", "", "" }};          /* connections options array - one element per options set */
+    struct conn_opts_struct *conn_opts[MAX_CONSOLE];
     PGconn * conns[8];                                  /* array for connections */
     enum context query_context;                         /* context - query for pgbouncer */
     int console_no = 1, console_index = 0;              /* console number and indexes associated with indexes inside *conns[] */
@@ -537,6 +553,7 @@ int main (int argc, char *argv[])
     WINDOW  *w_summary, *w_cmdline, *w_answer;          /* main screen windows */
     struct stats_cpu_struct *st_cpu[2];
     
+    init_conn_opts(conn_opts);                          /* allocate memory for connection options */
     /* parse input parameters if they are exists */
     if ( argc > 1 ) {                                           /* input parameters specified */
         create_initial_conn(argc, argv, conn_opts);           /* save input parameters */
@@ -566,7 +583,7 @@ int main (int argc, char *argv[])
             ch = getch();
             switch (ch) {
                 case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
-                    if ( conn_opts[ch - '0' - 1].conn_used ) {
+                    if ( conn_opts[ch - '0' - 1]->conn_used ) {
                         console_no = ch - '0', console_index = console_no - 1;
                         wprintw(w_cmdline, "Switch to another pgbouncer connection (console %i)", console_no);
                     } else                   
@@ -624,9 +641,9 @@ int main (int argc, char *argv[])
             wprintw(w_summary, "%s - %s, ", progname, time);
             wprintw(w_summary, "load average: %.2f, %.2f, %.2f\n", get_loadavg(1), get_loadavg(5), get_loadavg(15));
             print_cpu_usage(w_summary, st_cpu);
-            wprintw(w_summary, "conninfo: %s:%s %s@%s\n", \
-                conn_opts[console_index].hostaddr, conn_opts[console_index].port, \
-                conn_opts[console_index].user, conn_opts[console_index].dbname);
+            wprintw(w_summary, "conninfo: %s:%s %s@%s\n",
+                conn_opts[console_index]->hostaddr, conn_opts[console_index]->port,
+                conn_opts[console_index]->user, conn_opts[console_index]->dbname);
             wprintw(w_summary, "pgbouncer pid: -----, pgbouncer cpu usage: --.- us, --.- sy, network: -- in, -- out\n");
             wrefresh(w_summary);
 

@@ -79,13 +79,13 @@ enum trivalue
 enum context { pools, clients, servers, databases, stats };
 
 /* Functions prototypes */
-void create_initial_conn(int argc, char *argv[], struct conn_opts_struct conn_opts[]);     // обработка входных параметров и установка дефолтов
-int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct conn_opts[], const int pos);
-void print_conn(struct conn_opts_struct conn_opts[]);
-void prepare_conninfo(struct conn_opts_struct conn_opts[]);          /* prepare conninfo string from conn_opts */
+void create_initial_conn(int argc, char *argv[], struct conn_opts_struct *conn_opts[]);     // обработка входных параметров и установка дефолтов
+int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct *conn_opts[], const int pos);
+void print_conn(struct conn_opts_struct *conn_opts[]);
+void prepare_conninfo(struct conn_opts_struct *conn_opts[]);          /* prepare conninfo string from conn_opts */
 char * simple_prompt(const char *prompt, int maxlen, bool echo);
 PGresult * do_query(PGconn *conn, enum context query_context);
-void open_connections(struct conn_opts_struct conn_opts[], PGconn * conns[]);
+void open_connections(struct conn_opts_struct *conn_opts[], PGconn * conns[]);
 void close_connections(PGconn * conns[]);
 int key_is_pressed(void);                                       /* check were key is pressed */
 
@@ -93,6 +93,7 @@ void print_data(WINDOW * window, enum context query_context, PGresult *res);   /
 char * print_time();                                          /* print current time */
 float get_loadavg();                                           /* get load average values */
 
+void init_conn_opts(struct conn_opts_struct *conn_opts[]);
 void init_stats(struct stats_cpu_struct *st_cpu[]);
 void read_stat_cpu(struct stats_cpu_struct *st_cpu, int nbr, unsigned long long *uptime, unsigned long long *uptime0);
 unsigned long long get_interval(unsigned long long prev_uptime, unsigned long long curr_uptime);
