@@ -1,6 +1,38 @@
+/*
+ * pgbconsole: top-like console for Pgbouncer - PostgerSQL connection pooler
+ * (C) 2015 by Alexey Lesovsky (lesovsky <at> gmail.com)
+ *
+ ***************************************************************************
+ * place license here (BSD)
+ ***************************************************************************
+ */
+
+#include <errno.h>
+#include <getopt.h>
+#include <limits.h>
+#include <ncurses.h>
+#include <pwd.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <termios.h>
+#include <time.h>
+#include <unistd.h>
+#include "libpq-fe.h"
 #include "pgbconsole.h"
 
-int key_is_pressed(void)             /* check were key is pressed */
+/*
+ **************************************************************************** 
+ * Trap keys in program main mode
+ *
+ * RETURNS:
+ * 1 if key is pressed or 0 if not.
+ **************************************************************************** 
+ */
+int key_is_pressed(void)
 {
     int ch = getch();
     if (ch != ERR) {
@@ -11,12 +43,20 @@ int key_is_pressed(void)             /* check were key is pressed */
         return 0;
 }
     
+/*
+ **************************************************************************** 
+ * Allocate memory for connections options struct array
+ *
+ * OUT:
+ * @conn_opts   Initialized array of connection options
+ **************************************************************************** 
+ */
 void init_conn_opts(struct conn_opts_struct *conn_opts[])
 {
     int i;
-    /* Allocate structures for connection options */
     for (i = 0; i < MAX_CONSOLE; i++) {
-        if ((conn_opts[i] = (struct conn_opts_struct *) malloc(CONN_OPTS_SIZE * 2)) == NULL) {
+        if ((conn_opts[i] = (struct conn_opts_struct *) 
+                    malloc(CONN_OPTS_SIZE * 2)) == NULL) {
             perror("malloc");
             exit(EXIT_FAILURE);
         }
@@ -32,9 +72,23 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
     }
 }
 
-void create_initial_conn(int argc, char *argv[], struct conn_opts_struct * conn_opts[])
+/*
+ **************************************************************************** 
+ * Take input parameters and add them into connections options.
+ *
+ * IN:
+ * @argc            Input arguments count.
+ * @argv[]          Input arguments array.
+ *
+ * OUT:
+ * @conn_opts[]     Array where connections options will be saved.
+ *
+ **************************************************************************** 
+ */
+void create_initial_conn(int argc, char *argv[],
+        struct conn_opts_struct * conn_opts[])
 {
-    struct passwd *pw = getpwuid(getuid());             /* get current user info */
+    struct passwd *pw = getpwuid(getuid());
 
     /* short options */
     const char * short_options = "h:p:U:d:wW?";
@@ -56,19 +110,22 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts_struct * conn_
 
     if (argc > 1)
     {
-        if ((strcmp(argv[1], "-?") == 0) || (argc == 2 && (strcmp(argv[1], "--help") == 0)))
+        if ((strcmp(argv[1], "-?") == 0) 
+                || (argc == 2 && (strcmp(argv[1], "--help") == 0)))
         {
             printf("print help here\n");
             exit(EXIT_SUCCESS);
         }
-        if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0)
+        if (strcmp(argv[1], "--version") == 0 
+                || strcmp(argv[1], "-V") == 0)
         {
             printf("show version here\n");
             exit(EXIT_SUCCESS);
         }
     }
 
-    while ( (param = getopt_long(argc, argv, short_options, long_options, &option_index)) != -1 )
+    while ( (param = getopt_long(argc, argv, 
+                    short_options, long_options, &option_index)) != -1 )
     {
         switch(param)
         {
@@ -91,7 +148,8 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts_struct * conn_
                 prompt_password = TRI_YES;
                 break;
             case '?': default:
-                fprintf(stderr, "Try \"%s --help\" for more information.\n", argv[0]);
+                fprintf(stderr, 
+                        "Try \"%s --help\" for more information.\n", argv[0]);
                 exit (EXIT_SUCCESS);
                 break;
         }
@@ -99,13 +157,16 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts_struct * conn_
 
     while (argc - optind >= 1)
     {
-        if ( (argc - optind > 1) && strlen(conn_opts[0]->user) == 0 && strlen(conn_opts[0]->dbname) == 0 )
+        if ( (argc - optind > 1) 
+                && strlen(conn_opts[0]->user) == 0
+                && strlen(conn_opts[0]->dbname) == 0 )
             strcpy(conn_opts[0]->user, argv[optind]);
         else if ( (argc - optind >= 1) && strlen(conn_opts[0]->dbname) == 0 )
             strcpy(conn_opts[0]->dbname, argv[optind]);
         else
-            fprintf(stderr, "%s: warning: extra command-line argument \"%s\" ignored\n", argv[0], argv[optind]);
-
+            fprintf(stderr,
+                    "%s: warning: extra command-line argument \"%s\" ignored\n",
+                    argv[0], argv[optind]);
         optind++;
     }    
 
@@ -120,36 +181,54 @@ void create_initial_conn(int argc, char *argv[], struct conn_opts_struct * conn_
     }
 
     if ( prompt_password == TRI_YES )
-        strcpy(conn_opts[0]->password, simple_prompt("Password: ", 100, false));
+        strcpy(conn_opts[0]->password, password_prompt("Password: ", 100, false));
 
-    if ( strlen(conn_opts[0]->dbname) == 0 && strlen(conn_opts[0]->user) == 0 ) {
+    if ( strlen(conn_opts[0]->dbname) == 0
+            && strlen(conn_opts[0]->user) == 0 ) {
         strcpy(conn_opts[0]->user, pw->pw_name);
         strcpy(conn_opts[0]->dbname, DEFAULT_DBNAME);
     }
-    else if ( strlen(conn_opts[0]->user) != 0 && strlen(conn_opts[0]->dbname) == 0 )
+    else if ( strlen(conn_opts[0]->user) != 0
+            && strlen(conn_opts[0]->dbname) == 0 )
         strcpy(conn_opts[0]->dbname, conn_opts[0]->user);
 
     conn_opts[0]->conn_used = true;
 }
 
-int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct * conn_opts[], const int pos)
+/*
+ **************************************************************************** 
+ * Read ~/.pgbrc file and fill up connections options array.
+ *
+ * IN:
+ * @argc            Input arguments count.
+ * @argv[]          Input arguments array.
+ * @pos             Start position inside array.
+ *
+ * OUT:
+ * @conn_opts       Connections options array.
+ *
+ * RETURNS:
+ * Success or failure.
+ **************************************************************************** 
+ */
+int create_pgbrc_conn(int argc, char *argv[],
+        struct conn_opts_struct * conn_opts[], const int pos)
 {
-    FILE *fp;                                               /* file pointer for .pgbrc */
-    static char pgbrcpath[PATH_MAX];                        /* path where located .pgbrc */
-    struct stat statbuf;                                    /* .pgbrc metadata */
+    FILE *fp;
+    static char pgbrcpath[PATH_MAX];
+    struct stat statbuf;
     char strbuf[BUFFERSIZE];
     int i = pos;
-    struct passwd *pw = getpwuid(getuid());                 /* current user info */
+    struct passwd *pw = getpwuid(getuid());
 
-    /* build path to .pgbrc file */
     strcpy(pgbrcpath, pw->pw_dir);
     strcat(pgbrcpath, "/");
     strcat(pgbrcpath, PGBRC_FILE);
 
-    /* check permissions, must be 600 */
     stat(pgbrcpath, &statbuf);
     if ( statbuf.st_mode & (S_IRWXG | S_IRWXO) ) {
-        printf("WARNING: %s has wrong permissions.\n", pgbrcpath);
+        fprintf(stderr,
+                "WARNING: %s has wrong permissions.\n", pgbrcpath);
         return PGBRC_READ_ERR;
     }
 
@@ -157,7 +236,9 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct * conn_opt
     if ((fp = fopen(pgbrcpath, "r")) != NULL) {
         while (fgets(strbuf, 4096, fp) != 0) {
             sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:\n]",
-                conn_opts[i]->hostaddr, conn_opts[i]->port, conn_opts[i]->dbname, conn_opts[i]->user, conn_opts[i]->password);
+                conn_opts[i]->hostaddr, conn_opts[i]->port,
+                conn_opts[i]->dbname,   conn_opts[i]->user,
+                conn_opts[i]->password);
             conn_opts[i]->terminal = i;
             conn_opts[i]->conn_used = true;
             i++;
@@ -165,11 +246,18 @@ int create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct * conn_opt
         fclose(fp);
         return PGBRC_READ_OK;
     } else {
-        printf("WARNING: failed to open %s. Try use defaults.\n", pgbrcpath);
+        fprintf(stdout,
+                "WARNING: failed to open %s. Try use defaults.\n", pgbrcpath);
         return PGBRC_READ_ERR;
     }
 }
 
+/*
+ **************************************************************************** 
+ * Print connections from conn_opts (debug function, will be removed)
+ *
+ **************************************************************************** 
+ */
 void print_conn(struct conn_opts_struct * conn_opts[])
 {
     int i;
@@ -178,6 +266,18 @@ void print_conn(struct conn_opts_struct * conn_opts[])
             printf("qq: %s\n", conn_opts[i]->conninfo);
 }
 
+/*
+ **************************************************************************** 
+ * Prepare conninfo string for PQconnectdb.
+ *
+ * IN:
+ * @conn_opts       Connections options array without filled conninfo.
+ *
+ * OUT:
+ * @conn_opts       Connections options array with conninfo.
+ *
+ **************************************************************************** 
+ */
 void prepare_conninfo(struct conn_opts_struct * conn_opts[])
 {
     int i;
@@ -196,6 +296,18 @@ void prepare_conninfo(struct conn_opts_struct * conn_opts[])
         }
 }
 
+/*
+ **************************************************************************** 
+ * Open connections to pgbouncer using conninfo string from conn_opts.
+ *
+ * IN:
+ * @conn_opts       Connections options array.
+ *
+ * OUT:
+ * @conns           Array of connections.
+ *
+ **************************************************************************** 
+ */
 void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
 {
     int i;
@@ -208,6 +320,15 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
     }
 }
 
+/*
+ **************************************************************************** 
+ * Close connections to pgbouncers.
+ *
+ * IN:
+ * @conns       Array of connections
+ *
+ **************************************************************************** 
+ */
 void close_connections(PGconn * conns[])
 {
     int i;
@@ -216,6 +337,18 @@ void close_connections(PGconn * conns[])
         PQfinish(conns[i]);
 }
 
+/*
+ **************************************************************************** 
+ * Send query to pgbouncer.
+ *
+ * IN:
+ * @conn            Pgbouncer connection.
+ * @query_context   Type of query.
+ *
+ * RETURNS:
+ * Answer from pgbouncer.
+ **************************************************************************** 
+ */
 PGresult * do_query(PGconn *conn, enum context query_context)
 {
     PGresult    *res;
@@ -246,6 +379,17 @@ PGresult * do_query(PGconn *conn, enum context query_context)
         return res;
 }
 
+/*
+ **************************************************************************** 
+ * Print answer from pgbouncer to the program main window.
+ *
+ * IN:
+ * @window              Window which is used for print.
+ * @query_context       Type of query.
+ * @res                 Answer from pgbouncer.
+ *
+ **************************************************************************** 
+ */
 void print_data(WINDOW * window, enum context query_context, PGresult *res)
 {
     int    row_count, col_count, row, col, i;
@@ -256,8 +400,10 @@ void print_data(WINDOW * window, enum context query_context, PGresult *res)
         char name[20];
         int width;
     };
-    struct colAttrs *columns = (struct colAttrs *) malloc(sizeof(struct colAttrs) * col_count);
+    struct colAttrs *columns = (struct colAttrs *) 
+        malloc(sizeof(struct colAttrs) * col_count);
 
+    /* calculate column width */
     for ( col = 0, i = 0; col < col_count; col++, i++) {
         strcpy(columns[i].name, PQfname(res, col));
         int colname_len = strlen(PQfname(res, col));
@@ -270,17 +416,18 @@ void print_data(WINDOW * window, enum context query_context, PGresult *res)
         columns[i].width = width + 3;
     }
 
-    wclear(window);                                 /* clear window */
+    wclear(window);
 
-    wattron(window, A_BOLD);                                 /* print header with bold */
+    wattron(window, A_BOLD);
     for ( col = 0, i = 0; col < col_count; col++, i++ )
         wprintw(window, "%-*s", columns[i].width, PQfname(res,col));
     wprintw(window, "\n");
-    wattroff(window, A_BOLD);                                /* disable bold */
+    wattroff(window, A_BOLD);
 
     for ( row = 0; row < row_count; row++ ) {
         for ( col = 0, i = 0; col < col_count; col++, i++ ) {
-            wprintw(window, "%-*s", columns[i].width, PQgetvalue(res, row, col));
+            wprintw(window,
+                    "%-*s", columns[i].width, PQgetvalue(res, row, col));
         }
     wprintw(window, "\n");
     }
@@ -290,11 +437,24 @@ void print_data(WINDOW * window, enum context query_context, PGresult *res)
     free(columns);
 }
 
-char * simple_prompt(const char *prompt, int maxlen, bool echo)
+/*
+ **************************************************************************** 
+ * Password prompt.
+ *
+ * IN:
+ * @prompt          Text of prompt.
+ * @maxlen          Length of input string.
+ * @echo            Echo input string.
+ *
+ * RETURNS:
+ * @password     Password
+ **************************************************************************** 
+ */
+char * password_prompt(const char *prompt, int maxlen, bool echo)
 {
     struct termios t_orig, t;
-    char *destination;
-    destination = (char *) malloc(maxlen + 1);
+    char *password;
+    password = (char *) malloc(maxlen + 1);
 
     if (!echo) {
         tcgetattr(fileno(stdin), &t);
@@ -304,8 +464,8 @@ char * simple_prompt(const char *prompt, int maxlen, bool echo)
     }
 
     fputs(prompt, stdout);
-    if (fgets(destination, maxlen + 1, stdin) == NULL)
-        destination[0] = '\0';
+    if (fgets(password, maxlen + 1, stdin) == NULL)
+        password[0] = '\0';
 
     if (!echo) {
         tcsetattr(fileno(stdin), TCSAFLUSH, &t_orig);
@@ -313,14 +473,18 @@ char * simple_prompt(const char *prompt, int maxlen, bool echo)
         fflush(stdout);
     }
 
-    return destination;
+    return password;
 }
 
 /*
- *  Summary window functions
+ **************************************************************************** 
+ * Print current time.
+ *
+ * RETURNS:
+ * Return current time.
+ **************************************************************************** 
  */
-
-char * print_time()
+char * print_time(void)
 {
     time_t rawtime;
     struct tm *timeinfo;
@@ -332,6 +496,17 @@ char * print_time()
     return strtime;
 }
 
+/*
+ **************************************************************************** 
+ * Read /proc/loadavg and return load average value.
+ *
+ * IN:
+ * @m       Minute value.
+ *
+ * RETURNS:
+ * Load average for 1, 5 or 15 minutes.
+ **************************************************************************** 
+ */
 float get_loadavg(const int m)
 {
     if ( m != 1 && m != 5 && m != 15 )
@@ -339,7 +514,6 @@ float get_loadavg(const int m)
 
     float avg1, avg5, avg15;
     FILE *loadavg_fd;
-    char *loadavg = (char *) malloc(sizeof(char) * 20);
 
     if ((loadavg_fd = fopen(LOADAVG_FILE, "r")) == NULL) {
         fprintf(stderr, "can't open %s\n", LOADAVG_FILE);
@@ -357,15 +531,21 @@ float get_loadavg(const int m)
 }
 
 /*
- * CPU usage functions
+ **************************************************************************** 
+ * Allocate memory for cpu statistics struct.
+ *
+ * OUT:
+ * @st_cpu      Struct for cpu statistics.
+ *
+ **************************************************************************** 
  */
-
 void init_stats(struct stats_cpu_struct *st_cpu[])
 {
     int i;
     /* Allocate structures for CPUs "all" and 0 */
     for (i = 0; i < 2; i++) {
-        if ((st_cpu[i] = (struct stats_cpu_struct *) malloc(STATS_CPU_SIZE * 2)) == NULL) {
+        if ((st_cpu[i] = (struct stats_cpu_struct *) 
+                    malloc(STATS_CPU_SIZE * 2)) == NULL) {
             perror("malloc");
             exit(4);
         }
@@ -373,6 +553,14 @@ void init_stats(struct stats_cpu_struct *st_cpu[])
     }
 }
 
+/*
+ **************************************************************************** 
+ * Get system clock resolution.
+ *
+ * OUT:
+ * @hz      Number of intervals per second.
+ **************************************************************************** 
+ */
 void get_HZ(void)
 {
         long ticks;
@@ -384,6 +572,15 @@ void get_HZ(void)
         hz = (unsigned int) ticks;
 }
 
+/*
+ **************************************************************************** 
+ * Read machine uptime independently of the number of processors.
+ *
+ * OUT:
+ * @uptime          Uptime value in jiffies.
+ *
+ **************************************************************************** 
+ */
 void read_uptime(unsigned long long *uptime)
 {
         FILE *fp;
@@ -404,55 +601,63 @@ void read_uptime(unsigned long long *uptime)
         fclose(fp);
 }
 
-void read_stat_cpu(struct stats_cpu_struct *st_cpu, int nbr,
+/*
+ **************************************************************************** 
+ * Read cpu statistics from /proc/stat. Also calculate uptime if 
+ * read_uptime() function return NULL.
+ *
+ * IN:
+ * @st_cpu          Struct where stat will be saved.
+ * @nbr             Total number of CPU (including cpu "all").
+ * 
+ * OUT:             
+ * @st_cpu          Struct with statistics.
+ * @uptime          Machine uptime multiplied by the number of processors.
+ * @uptime0         Machine uptime. Filled only if previously set to zero.
+ *
+ **************************************************************************** 
+ */
+void read_cpu_stat(struct stats_cpu_struct *st_cpu, int nbr,
                     unsigned long long *uptime, unsigned long long *uptime0)
 {
     FILE *stat_fp;
     struct stats_cpu_struct *st_cpu_i;
     struct stats_cpu_struct sc;
-    char line[8192];                /* line length for reading /proc/stat */
-    int proc_nb;                    /* proc number such as cpuX from /proc/stat */
+    char line[8192];
+    int proc_nb;
 
     if ((stat_fp = fopen(STAT_FILE, "r")) == NULL) {
-        fprintf(stderr, "Cannot open %s: %s\n", STAT_FILE, strerror(errno));
-        exit(2);
+        fprintf(stderr,
+                "Cannot open %s: %s\n", STAT_FILE, strerror(errno));
+        exit(EXIT_FAILURE);
     }
 
     while ( (fgets(line, sizeof(line), stat_fp)) != NULL ) {
         if (!strncmp(line, "cpu ", 4)) {
             memset(st_cpu, 0, STATS_CPU_SIZE);
-            sscanf(line + 5, "%llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
-                &st_cpu->cpu_user,
-                &st_cpu->cpu_nice,
-                &st_cpu->cpu_sys,
-                &st_cpu->cpu_idle,
-                &st_cpu->cpu_iowait,
-                &st_cpu->cpu_steal,
-                &st_cpu->cpu_hardirq,
-                &st_cpu->cpu_softirq,
-                &st_cpu->cpu_guest,
-                &st_cpu->cpu_guest_nice);
+            sscanf(line + 5, 
+                    "%llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+                &st_cpu->cpu_user,      &st_cpu->cpu_nice,
+                &st_cpu->cpu_sys,       &st_cpu->cpu_idle,
+                &st_cpu->cpu_iowait,    &st_cpu->cpu_steal,
+                &st_cpu->cpu_hardirq,   &st_cpu->cpu_softirq,
+                &st_cpu->cpu_guest,     &st_cpu->cpu_guest_nice);
                 *uptime = st_cpu->cpu_user + st_cpu->cpu_nice +
                     st_cpu->cpu_sys + st_cpu->cpu_idle +
                     st_cpu->cpu_iowait + st_cpu->cpu_steal +
                     st_cpu->cpu_hardirq + st_cpu->cpu_softirq +
                     st_cpu->cpu_guest + st_cpu->cpu_guest_nice;
-                printf("read_stat_cpu: uptime = %llu\n", *uptime);
 
         } else if (!strncmp(line, "cpu", 3)) {
             if (nbr > 1) {
                 memset(&sc, 0, STATS_CPU_SIZE);
-                sscanf(line + 3, "%d %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
-                    &proc_nb,
-                    &sc.cpu_user,
-                    &sc.cpu_nice,
-                    &sc.cpu_sys,
-                    &sc.cpu_idle,
-                    &sc.cpu_iowait,
-                    &sc.cpu_steal,
-                    &sc.cpu_hardirq,
-                    &sc.cpu_softirq,
-                    &sc.cpu_guest,
+                sscanf(line + 3,
+                        "%d %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+                    &proc_nb,           &sc.cpu_user,
+                    &sc.cpu_nice,       &sc.cpu_sys,
+                    &sc.cpu_idle,       &sc.cpu_iowait,
+                    &sc.cpu_steal,      &sc.cpu_hardirq,
+                    &sc.cpu_softirq,    &sc.cpu_guest,
                     &sc.cpu_guest_nice);
 
                     if (proc_nb < (nbr - 1)) {
@@ -465,7 +670,7 @@ void read_stat_cpu(struct stats_cpu_struct *st_cpu, int nbr,
                                 sc.cpu_sys     + sc.cpu_idle   +
                                 sc.cpu_iowait  + sc.cpu_steal  +
                                 sc.cpu_hardirq + sc.cpu_softirq;
-                        printf("read_stat_cpu: uptime0 = %llu\n", *uptime0);
+                        printf("read_cpu_stat: uptime0 = %llu\n", *uptime0);
                     }
             }
         } 
@@ -473,12 +678,24 @@ void read_stat_cpu(struct stats_cpu_struct *st_cpu, int nbr,
     fclose(stat_fp);
 }
 
+/*
+ **************************************************************************** 
+ * Compute time interval.
+ *
+ * IN:
+ * @prev_uptime     Previous uptime value in jiffies.
+ * @curr_interval   Current uptime value in jiffies.
+ *
+ * RETURNS:
+ * Interval of time in jiffies.
+ **************************************************************************** 
+ */
 unsigned long long get_interval(unsigned long long prev_uptime,
                                 unsigned long long curr_uptime)
 {
         unsigned long long itv;
 
-        /* prev_time=0 when displaying stats since system startup */
+        /* first run prev_uptime=0 so displaying stats since system startup */
         itv = curr_uptime - prev_uptime;
 
         if (!itv) {     /* Paranoia checking */
@@ -488,7 +705,14 @@ unsigned long long get_interval(unsigned long long prev_uptime,
         return itv;
 }
 
-double ll_sp_value(unsigned long long value1, unsigned long long value2, unsigned long long itv)
+/*
+ **************************************************************************** 
+ * Workaround for CPU counters read from /proc/stat: Dyn-tick kernels
+ * have a race issue that can make those counters go backward.
+ **************************************************************************** 
+ */
+double ll_sp_value(unsigned long long value1, unsigned long long value2,
+        unsigned long long itv)
 {
         if (value2 < value1)
                 return (double) 0;
@@ -496,25 +720,47 @@ double ll_sp_value(unsigned long long value1, unsigned long long value2, unsigne
                 return SP_VALUE(value1, value2, itv);
 }
 
-void write_cpu_stat(WINDOW * window, struct stats_cpu_struct *st_cpu[], int curr, unsigned long long itv)
+/*
+ **************************************************************************** 
+ * Display cpu statistics in specified window.
+ *
+ * IN:
+ * @window      Window in which spu statistics will be printed.
+ * @st_cpu      Struct with cpu statistics.
+ * @curr        Index in array for current sample statistics.
+ * @itv         Interval of time.
+ *
+ **************************************************************************** 
+ */
+void write_cpu_stat_raw(WINDOW * window, struct stats_cpu_struct *st_cpu[],
+        int curr, unsigned long long itv)
 {
-        wprintw(window, "%%Cpu: %4.1f us, %4.1f sy, %4.1f ni, %4.1f id, %4.1f wa, %4.1f hi, %4.1f si, %4.1f st\n",
-               ll_sp_value(st_cpu[!curr]->cpu_user,   st_cpu[curr]->cpu_user,   itv),
-               ll_sp_value(st_cpu[!curr]->cpu_sys + st_cpu[!curr]->cpu_softirq +
-                           st_cpu[!curr]->cpu_hardirq,
-                           st_cpu[curr]->cpu_sys + st_cpu[curr]->cpu_softirq +
-                           st_cpu[curr]->cpu_hardirq, itv),
-               ll_sp_value(st_cpu[!curr]->cpu_nice,   st_cpu[curr]->cpu_nice,   itv),
+        wprintw(window, 
+                "     %%Cpu: %4.1f us, %4.1f sy, %4.1f ni, %4.1f id, %4.1f wa, %4.1f hi, %4.1f si, %4.1f st\n",
+               ll_sp_value(st_cpu[!curr]->cpu_user, st_cpu[curr]->cpu_user, itv),
+               ll_sp_value(st_cpu[!curr]->cpu_sys + st_cpu[!curr]->cpu_softirq + st_cpu[!curr]->cpu_hardirq,
+                           st_cpu[curr]->cpu_sys + st_cpu[curr]->cpu_softirq + st_cpu[curr]->cpu_hardirq, itv),
+               ll_sp_value(st_cpu[!curr]->cpu_nice, st_cpu[curr]->cpu_nice, itv),
                (st_cpu[curr]->cpu_idle < st_cpu[!curr]->cpu_idle) ?
                0.0 :
-               ll_sp_value(st_cpu[!curr]->cpu_idle,   st_cpu[curr]->cpu_idle,   itv),
+               ll_sp_value(st_cpu[!curr]->cpu_idle, st_cpu[curr]->cpu_idle, itv),
                ll_sp_value(st_cpu[!curr]->cpu_iowait, st_cpu[curr]->cpu_iowait, itv),
                ll_sp_value(st_cpu[!curr]->cpu_hardirq, st_cpu[curr]->cpu_hardirq, itv),
                ll_sp_value(st_cpu[!curr]->cpu_softirq, st_cpu[curr]->cpu_softirq, itv),
-               ll_sp_value(st_cpu[!curr]->cpu_steal,  st_cpu[curr]->cpu_steal,  itv));
+               ll_sp_value(st_cpu[!curr]->cpu_steal, st_cpu[curr]->cpu_steal, itv));
         wrefresh(window);
 }
 
+/*
+ **************************************************************************** 
+ * Composite function which read cpu stats and uptime then print out stats 
+ * to specified window.
+ *
+ * IN:
+ * @window      Window where spu statistics will be printed.
+ * @st_cpu      Struct with cpu statistics.
+ **************************************************************************** 
+ */
 void print_cpu_usage(WINDOW * window, struct stats_cpu_struct *st_cpu[])
 {
     static unsigned long long uptime[2]  = {0, 0};
@@ -524,48 +770,49 @@ void print_cpu_usage(WINDOW * window, struct stats_cpu_struct *st_cpu[])
 
     uptime0[curr] = 0;
     read_uptime(&(uptime0[curr]));
-    read_stat_cpu(st_cpu[curr], 2, &(uptime[curr]), &(uptime0[curr]));
+    read_cpu_stat(st_cpu[curr], 2, &(uptime[curr]), &(uptime0[curr]));
     itv = get_interval(uptime[!curr], uptime[curr]);
-    write_cpu_stat(window, st_cpu, curr, itv);
+    write_cpu_stat_raw(window, st_cpu, curr, itv);
     itv = get_interval(uptime0[!curr], uptime0[curr]);
     curr ^= 1;
 }
 
-
 /*
- *
- *  Main 
- *
+ **************************************************************************** 
+ * Main entry for pgbconsole program.
+ **************************************************************************** 
  */
-
 int main (int argc, char *argv[])
 {
     char * progname = argv[0];
-    PGresult    *res;                                   /* query result */
+    PGresult    *res;
     struct conn_opts_struct *conn_opts[MAX_CONSOLE];
-    PGconn * conns[8];                                  /* array for connections */
-    enum context query_context;                         /* context - query for pgbouncer */
-    int console_no = 1, console_index = 0;              /* console number and indexes associated with indexes inside *conns[] */
-    int ch;                                             /* var for key code */
-    WINDOW  *w_summary, *w_cmdline, *w_answer;          /* main screen windows */
+    PGconn * conns[8];
+    enum context query_context;
+    int console_no = 1, console_index = 0;
+    int ch;
+    WINDOW  *w_summary, *w_cmdline, *w_answer;
     struct stats_cpu_struct *st_cpu[2];
     
-    init_conn_opts(conn_opts);                          /* allocate memory for connection options */
-    /* parse input parameters if they are exists */
-    if ( argc > 1 ) {                                           /* input parameters specified */
-        create_initial_conn(argc, argv, conn_opts);           /* save input parameters */
+    /* Process args... */
+    init_conn_opts(conn_opts);
+    if ( argc > 1 ) {
+        create_initial_conn(argc, argv, conn_opts);
         create_pgbrc_conn(argc, argv, conn_opts, 1);
-    } else                                                     /* input parameters not specified */
+    } else
         if (create_pgbrc_conn(argc, argv, conn_opts, 0) == PGBRC_READ_ERR)
             create_initial_conn(argc, argv, conn_opts);
 
+    /* CPU stats related actions */
     init_stats(st_cpu);
     get_HZ();
 
+    /* open connections to pgbouncers */
     prepare_conninfo(conn_opts);
     print_conn(conn_opts);
     open_connections(conn_opts, conns);
 
+    /* init ncurses windows */
     initscr();
     cbreak();
     noecho();
@@ -575,6 +822,7 @@ int main (int argc, char *argv[])
     w_cmdline = newwin(1, 0, 4, 0);
     w_answer = newwin(0, 0, 5, 0);
 
+    /* main loop */
     while (1) {
         if (key_is_pressed()) {
             ch = getch();
@@ -632,16 +880,16 @@ int main (int argc, char *argv[])
                     break;
             }
         } else {
-            res = do_query(conns[console_index], query_context);     /* sent query to the connections using their indexes */
+            res = do_query(conns[console_index], query_context);
             char *time = print_time();
             wclear(w_summary);
-            wprintw(w_summary, "%s - %s, ", progname, time);
+            wprintw(w_summary, "  %s: %s, ", progname, time);
             wprintw(w_summary, "load average: %.2f, %.2f, %.2f\n", get_loadavg(1), get_loadavg(5), get_loadavg(15));
             print_cpu_usage(w_summary, st_cpu);
-            wprintw(w_summary, "conninfo: %s:%s %s@%s\n",
+            wprintw(w_summary, " Conninfo: %s:%s %s@%s\n",
                 conn_opts[console_index]->hostaddr, conn_opts[console_index]->port,
                 conn_opts[console_index]->user, conn_opts[console_index]->dbname);
-            wprintw(w_summary, "pgbouncer pid: -----, pgbouncer cpu usage: --.- us, --.- sy, network: -- in, -- out\n");
+            wprintw(w_summary, "Pgbouncer: pid: -----, pgbouncer cpu usage: --.- us, --.- sy, network: -- in, -- out\n");
             wrefresh(w_summary);
 
             print_data(w_answer, query_context, res);
@@ -651,6 +899,7 @@ int main (int argc, char *argv[])
         }
     }
 
+    /* quit */
     endwin();
     close_connections(conns);
     return 0;
