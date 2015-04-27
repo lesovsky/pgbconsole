@@ -145,3 +145,7 @@ void
     key_processing(int ch);
 int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
     int ch, int console_index, int console_no);
+
+/* Pgbouncer action function */
+void do_reload(WINDOW * window, PGconn *conn);
+/* END Pgbouncer action functions */

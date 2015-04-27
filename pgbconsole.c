@@ -889,6 +889,33 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
 }
 
 /*
+ ********************************************* Pgbouncer actions functions **
+ * Reload pgbouncer.
+ *
+ * IN:
+ * @conn            current pgbouncer connection.
+ **************************************************************************** 
+ */
+void do_reload(WINDOW * window, PGconn * conn)
+{
+    char * query = "RELOAD";
+    PGresult * res;
+
+    res = PQexec(conn, query);
+    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+        wprintw(window, "Reload current pgbouncer: failed.");
+    else 
+        wprintw(window, "Reload current pgbouncer: success.");
+}
+
+/*
+ **************************************************************************** 
+ * Main entry for pgbconsole program.
+ **************************************************************************** 
+ */
+
+
+/*
  **************************************************************************** 
  * Main entry for pgbconsole program.
  **************************************************************************** 
@@ -952,7 +979,7 @@ int main (int argc, char *argv[])
                     wprintw(w_cmdline, "Open current pgbouncer log");
                     break;
                 case 'M':
-                    wprintw(w_cmdline, "Reload current pgbouncer");
+                    do_reload(w_cmdline, conns[console_index]);
                     break;
                 case 'P':
                     wprintw(w_cmdline, "Pause current pgbouncer");
