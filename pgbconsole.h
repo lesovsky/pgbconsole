@@ -131,3 +131,7 @@ unsigned long long
 double
     ll_sp_value(unsigned long long value1, unsigned long long value2,
                 unsigned long long itv);
+void
+    key_processing(int ch);
+int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
+    int ch, int console_index, int console_no);

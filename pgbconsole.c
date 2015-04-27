@@ -779,6 +779,44 @@ void print_cpu_usage(WINDOW * window, struct stats_cpu_struct *st_cpu[])
 
 /*
  **************************************************************************** 
+ *
+ **************************************************************************** 
+ */
+void key_processing(int ch)
+{
+
+}
+
+/*
+ **************************************************************************** 
+ * Switch console using specified number.
+ *
+ * IN:
+ * @window          Window where cmd status will be written.
+ * @conn_opts[]     Struct with connections options.
+ * @ch              Intercepted key (number from 1 to 8).
+ * @console_no      Active console number.
+ * @console_index   Index of active console.
+ *
+ * RETURNS:
+ * Index console on which performed switching.
+ **************************************************************************** 
+ */
+int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
+        int ch, int console_index, int console_no)
+{
+    if ( conn_opts[ch - '0' - 1]->conn_used ) {
+        console_no = ch - '0', console_index = console_no - 1;
+        wprintw(window,
+                "Switch to another pgbouncer connection (console %i)", console_no);
+    } else
+        wprintw(window,
+                "Do not switch because no connection associated (stay on console %i)", console_no);
+    return console_index;
+}
+
+/*
+ **************************************************************************** 
  * Main entry for pgbconsole program.
  **************************************************************************** 
  */
@@ -826,13 +864,10 @@ int main (int argc, char *argv[])
     while (1) {
         if (key_is_pressed()) {
             ch = getch();
+//            key_processing(ch);   /* not implemented */
             switch (ch) {
                 case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
-                    if ( conn_opts[ch - '0' - 1]->conn_used ) {
-                        console_no = ch - '0', console_index = console_no - 1;
-                        wprintw(w_cmdline, "Switch to another pgbouncer connection (console %i)", console_no);
-                    } else                   
-                        wprintw(w_cmdline, "Do not switch because no connection associated (stay on console %i)", console_no);
+                    console_index = switch_conn(w_cmdline, conn_opts, ch, console_index, console_no);
                     break;
                 case 'N':
                     wprintw(w_cmdline, "Create new connection");
@@ -881,9 +916,8 @@ int main (int argc, char *argv[])
             }
         } else {
             res = do_query(conns[console_index], query_context);
-            char *time = print_time();
             wclear(w_summary);
-            wprintw(w_summary, "  %s: %s, ", progname, time);
+            wprintw(w_summary, "  %s: %s, ", progname, print_time());
             wprintw(w_summary, "load average: %.2f, %.2f, %.2f\n", get_loadavg(1), get_loadavg(5), get_loadavg(15));
             print_cpu_usage(w_summary, st_cpu);
             wprintw(w_summary, " Conninfo: %s:%s %s@%s\n",
