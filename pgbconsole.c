@@ -890,30 +890,116 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
 
 /*
  ********************************************* Pgbouncer actions functions **
- * Reload pgbouncer.
+ * Reload pgbouncer. The PgBouncer process will reload its configuration file 
+ * and update changeable settings.
  *
  * IN:
- * @conn            current pgbouncer connection.
+ * @window          Window where reload status will be printed.
+ * @conn            Current pgbouncer connection.
  **************************************************************************** 
  */
 void do_reload(WINDOW * window, PGconn * conn)
 {
-    char * query = "RELOAD";
-    PGresult * res;
-
-    res = PQexec(conn, query);
-    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+    if (PQresultStatus(PQexec(conn, "RELOAD")) != PGRES_COMMAND_OK)
         wprintw(window, "Reload current pgbouncer: failed.");
     else 
         wprintw(window, "Reload current pgbouncer: success.");
 }
 
 /*
- **************************************************************************** 
- * Main entry for pgbconsole program.
+ ********************************************* Pgbouncer actions functions **
+ * Suspend pgbouncer. All socket buffers are flushed and PgBouncer stops 
+ * listening for data on them. The command will not return before all buffers
+ * are empty. To be used at the time of PgBouncer online reboot.
+ *
+ * IN:
+ * @window          Window where suspend status will be printed.
+ * @conn            Current pgbouncer connection.
  **************************************************************************** 
  */
+void do_suspend(WINDOW * window, PGconn * conn)
+{
+    if (PQresultStatus(PQexec(conn, "SUSPEND")) != PGRES_COMMAND_OK)
+        wprintw(window, "Suspend current pgbouncer: failed.");
+    else 
+        wprintw(window, "Suspend current pgbouncer: success.");
+}
 
+/*
+ ********************************************* Pgbouncer actions functions **
+ * Pause pgbouncer. PgBouncer tries to disconnect from all servers, first 
+ * waiting for all queries to complete. The command will not return before all
+ * queries are finished.
+ *
+ * IN:
+ * @window          Window where pause status will be printed.
+ * @conn            Current pgbouncer connection.
+ **************************************************************************** 
+ */
+void do_pause(WINDOW * window, PGconn * conn)
+{
+    char query[128] = "PAUSE";
+    char dbname[128];
+
+    echo();
+    nocbreak();
+    nodelay(stdscr, FALSE);
+
+    wprintw(window, "Database to pause [default database = all] ");
+    wrefresh(window);
+
+    wgetstr(window, dbname);
+    if (strcmp(dbname, "")) {
+        strcat(query, " ");
+        strcat(query, dbname);
+    }
+    
+    if (PQresultStatus(PQexec(conn, query)) != PGRES_COMMAND_OK)
+        wprintw(window, "Pause current pgbouncer: failed.");
+    else 
+        wprintw(window, "Pause current pgbouncer: success.");
+
+    noecho();
+    cbreak();
+    nodelay(stdscr, TRUE);
+}
+
+/*
+ ********************************************* Pgbouncer actions functions **
+ * Resume pgbouncer. Resume work from previous PAUSE or SUSPEND command.
+ *
+ * IN:
+ * @window          Window where pause status will be printed.
+ * @conn            Current pgbouncer connection.
+ **************************************************************************** 
+ */
+void do_resume(WINDOW * window, PGconn * conn)
+{
+    char query[128] = "RESUME";
+    char dbname[128];
+
+    echo();
+    nocbreak();
+    nodelay(stdscr, FALSE);
+
+    wprintw(window, "Database to resume [default database = all] ");
+    wrefresh(window);
+
+    wgetstr(window, dbname);
+    if (strcmp(dbname, "")) {
+        strcat(query, " ");
+        strcat(query, dbname);
+    }
+    
+    if (PQresultStatus(PQexec(conn, query)) != PGRES_COMMAND_OK)
+        wprintw(window, "Resume current pgbouncer: failed.");
+    else 
+        wprintw(window, "Resume current pgbouncer: success.");
+
+    noecho();
+    cbreak();
+    nodelay(stdscr, TRUE);
+}
 
 /*
  **************************************************************************** 
@@ -982,13 +1068,13 @@ int main (int argc, char *argv[])
                     do_reload(w_cmdline, conns[console_index]);
                     break;
                 case 'P':
-                    wprintw(w_cmdline, "Pause current pgbouncer");
+                    do_pause(w_cmdline, conns[console_index]);
                     break;
                 case 'R':
-                    wprintw(w_cmdline, "Resume current pgbouncer");
+                    do_resume(w_cmdline, conns[console_index]);
                     break;
                 case 'S':
-                    wprintw(w_cmdline, "Suspend current pgbouncer");
+                    do_suspend(w_cmdline, conns[console_index]);
                     break;
                 case 'p':
                     wprintw(w_cmdline, "Show pools");

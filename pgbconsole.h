@@ -148,4 +148,7 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
 
 /* Pgbouncer action function */
 void do_reload(WINDOW * window, PGconn *conn);
+void do_suspend(WINDOW * window, PGconn *conn);
+void do_pause(WINDOW * window, PGconn *conn);
+void do_resume(WINDOW * window, PGconn *conn);
 /* END Pgbouncer action functions */
