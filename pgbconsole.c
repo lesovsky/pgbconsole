@@ -966,6 +966,46 @@ void do_pause(WINDOW * window, PGconn * conn)
 
 /*
  ********************************************* Pgbouncer actions functions **
+ * Kill pgbouncer. Immediately drop all client and server connections on 
+ * given database.
+ *
+ * IN:
+ * @window          Window where pause status will be printed.
+ * @conn            Current pgbouncer connection.
+ **************************************************************************** 
+ */
+void do_kill(WINDOW * window, PGconn * conn)
+{
+    char query[128] = "KILL";
+    char dbname[128];
+
+    echo();
+    nocbreak();
+    nodelay(stdscr, FALSE);
+
+    wprintw(window, "Database to kill [must not be empty] ");
+    wrefresh(window);
+
+    wgetstr(window, dbname);
+    if (strcmp(dbname, "")) {
+        strcat(query, " ");
+        strcat(query, dbname);
+        
+        if (PQresultStatus(PQexec(conn, query)) != PGRES_COMMAND_OK)
+            wprintw(window, "Kill database %s: failed.", dbname);
+        else 
+            wprintw(window, "Resume database %s: success.", dbname);
+    } else {
+        wprintw(window, "A database is required.");
+    }
+
+    noecho();
+    cbreak();
+    nodelay(stdscr, TRUE);
+}
+
+/*
+ ********************************************* Pgbouncer actions functions **
  * Resume pgbouncer. Resume work from previous PAUSE or SUSPEND command.
  *
  * IN:
@@ -1075,6 +1115,9 @@ int main (int argc, char *argv[])
                     break;
                 case 'S':
                     do_suspend(w_cmdline, conns[console_index]);
+                    break;
+                case 'K':
+                    do_kill(w_cmdline, conns[console_index]);
                     break;
                 case 'p':
                     wprintw(w_cmdline, "Show pools");

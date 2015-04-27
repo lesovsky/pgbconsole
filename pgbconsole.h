@@ -151,4 +151,5 @@ void do_reload(WINDOW * window, PGconn *conn);
 void do_suspend(WINDOW * window, PGconn *conn);
 void do_pause(WINDOW * window, PGconn *conn);
 void do_resume(WINDOW * window, PGconn *conn);
+void do_kill(WINDOW * window, PGconn *conn);
 /* END Pgbouncer action functions */
