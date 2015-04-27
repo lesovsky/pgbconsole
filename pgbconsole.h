@@ -110,8 +110,17 @@ void
     print_data(WINDOW * window, enum context query_context, PGresult *res);
 char * 
     print_time(void);
+void
+    print_title(WINDOW * window, char * progname);
+
 float
     get_loadavg();
+void
+    print_loadavg(WINDOW * window);
+
+void
+    print_conninfo(WINDOW * window, struct conn_opts_struct *conn_opts[],
+            int console_index);
 
 void
     init_conn_opts(struct conn_opts_struct *conn_opts[]);

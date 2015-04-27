@@ -82,7 +82,6 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
  *
  * OUT:
  * @conn_opts[]     Array where connections options will be saved.
- *
  **************************************************************************** 
  */
 void create_initial_conn(int argc, char *argv[],
@@ -255,7 +254,6 @@ int create_pgbrc_conn(int argc, char *argv[],
 /*
  **************************************************************************** 
  * Print connections from conn_opts (debug function, will be removed)
- *
  **************************************************************************** 
  */
 void print_conn(struct conn_opts_struct * conn_opts[])
@@ -275,7 +273,6 @@ void print_conn(struct conn_opts_struct * conn_opts[])
  *
  * OUT:
  * @conn_opts       Connections options array with conninfo.
- *
  **************************************************************************** 
  */
 void prepare_conninfo(struct conn_opts_struct * conn_opts[])
@@ -305,7 +302,6 @@ void prepare_conninfo(struct conn_opts_struct * conn_opts[])
  *
  * OUT:
  * @conns           Array of connections.
- *
  **************************************************************************** 
  */
 void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
@@ -326,7 +322,6 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
  *
  * IN:
  * @conns       Array of connections
- *
  **************************************************************************** 
  */
 void close_connections(PGconn * conns[])
@@ -387,7 +382,6 @@ PGresult * do_query(PGconn *conn, enum context query_context)
  * @window              Window which is used for print.
  * @query_context       Type of query.
  * @res                 Answer from pgbouncer.
- *
  **************************************************************************** 
  */
 void print_data(WINDOW * window, enum context query_context, PGresult *res)
@@ -447,7 +441,7 @@ void print_data(WINDOW * window, enum context query_context, PGresult *res)
  * @echo            Echo input string.
  *
  * RETURNS:
- * @password     Password
+ * @password        Password.
  **************************************************************************** 
  */
 char * password_prompt(const char *prompt, int maxlen, bool echo)
@@ -496,6 +490,19 @@ char * print_time(void)
     return strtime;
 }
 
+
+/*
+ **************************************************************************** 
+ * Print title into summary window: program name and current time.
+ *
+ * IN:
+ * @window          Window where title will be printed.
+ **************************************************************************** 
+ */
+void print_title(WINDOW * window, char * progname)
+{
+    wprintw(window, "%s: %s, ", progname, print_time());
+}
 /*
  **************************************************************************** 
  * Read /proc/loadavg and return load average value.
@@ -530,13 +537,49 @@ float get_loadavg(const int m)
     }
 }
 
+
+/*
+ **************************************************************************** 
+ * Print load average into summary window.
+ *
+ * IN:
+ * @window      Window where load average will be printed.
+ **************************************************************************** 
+ */
+void print_loadavg(WINDOW * window)
+{
+    wprintw(window, "load average: %.2f, %.2f, %.2f\n",
+            get_loadavg(1),
+            get_loadavg(5),
+            get_loadavg(15));
+}
+
+/*
+ **************************************************************************** 
+ * Print current connection info.
+ *
+ * IN:
+ * @window          Window where info will be printed.
+ * @conn_opts[]     Struct with connections options.
+ * @console_index   Current console index.
+ **************************************************************************** 
+ */
+void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts[],
+        int console_index)
+{
+        wprintw(window, "  Conninfo: %s:%s %s@%s\n",
+            conn_opts[console_index]->hostaddr,
+            conn_opts[console_index]->port,
+            conn_opts[console_index]->user,
+            conn_opts[console_index]->dbname);
+}
+
 /*
  **************************************************************************** 
  * Allocate memory for cpu statistics struct.
  *
  * OUT:
  * @st_cpu      Struct for cpu statistics.
- *
  **************************************************************************** 
  */
 void init_stats(struct stats_cpu_struct *st_cpu[])
@@ -578,7 +621,6 @@ void get_HZ(void)
  *
  * OUT:
  * @uptime          Uptime value in jiffies.
- *
  **************************************************************************** 
  */
 void read_uptime(unsigned long long *uptime)
@@ -614,7 +656,6 @@ void read_uptime(unsigned long long *uptime)
  * @st_cpu          Struct with statistics.
  * @uptime          Machine uptime multiplied by the number of processors.
  * @uptime0         Machine uptime. Filled only if previously set to zero.
- *
  **************************************************************************** 
  */
 void read_cpu_stat(struct stats_cpu_struct *st_cpu, int nbr,
@@ -729,14 +770,13 @@ double ll_sp_value(unsigned long long value1, unsigned long long value2,
  * @st_cpu      Struct with cpu statistics.
  * @curr        Index in array for current sample statistics.
  * @itv         Interval of time.
- *
  **************************************************************************** 
  */
 void write_cpu_stat_raw(WINDOW * window, struct stats_cpu_struct *st_cpu[],
         int curr, unsigned long long itv)
 {
         wprintw(window, 
-                "     %%Cpu: %4.1f us, %4.1f sy, %4.1f ni, %4.1f id, %4.1f wa, %4.1f hi, %4.1f si, %4.1f st\n",
+                "      %%Cpu: %4.1f us, %4.1f sy, %4.1f ni, %4.1f id, %4.1f wa, %4.1f hi, %4.1f si, %4.1f st\n",
                ll_sp_value(st_cpu[!curr]->cpu_user, st_cpu[curr]->cpu_user, itv),
                ll_sp_value(st_cpu[!curr]->cpu_sys + st_cpu[!curr]->cpu_softirq + st_cpu[!curr]->cpu_hardirq,
                            st_cpu[curr]->cpu_sys + st_cpu[curr]->cpu_softirq + st_cpu[curr]->cpu_hardirq, itv),
@@ -779,7 +819,7 @@ void print_cpu_usage(WINDOW * window, struct stats_cpu_struct *st_cpu[])
 
 /*
  **************************************************************************** 
- *
+ * 
  **************************************************************************** 
  */
 void key_processing(int ch)
@@ -917,13 +957,11 @@ int main (int argc, char *argv[])
         } else {
             res = do_query(conns[console_index], query_context);
             wclear(w_summary);
-            wprintw(w_summary, "  %s: %s, ", progname, print_time());
-            wprintw(w_summary, "load average: %.2f, %.2f, %.2f\n", get_loadavg(1), get_loadavg(5), get_loadavg(15));
+            print_title(w_summary, progname);
+            print_loadavg(w_summary);
             print_cpu_usage(w_summary, st_cpu);
-            wprintw(w_summary, " Conninfo: %s:%s %s@%s\n",
-                conn_opts[console_index]->hostaddr, conn_opts[console_index]->port,
-                conn_opts[console_index]->user, conn_opts[console_index]->dbname);
-            wprintw(w_summary, "Pgbouncer: pid: -----, pgbouncer cpu usage: --.- us, --.- sy, network: -- in, -- out\n");
+            print_conninfo(w_summary, conn_opts, console_index);
+            wprintw(w_summary, " Pgbouncer: pid: -----, pgbouncer cpu usage: --.- us, --.- sy, network: -- in, -- out\n");
             wrefresh(w_summary);
 
             print_data(w_answer, query_context, res);
