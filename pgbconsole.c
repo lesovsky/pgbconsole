@@ -560,18 +560,16 @@ void print_loadavg(WINDOW * window)
  *
  * IN:
  * @window          Window where info will be printed.
- * @conn_opts[]     Struct with connections options.
- * @console_index   Current console index.
+ * @conn_opts       Struct with connections options.
  **************************************************************************** 
  */
-void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts[],
-        int console_index)
+void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts)
 {
         wprintw(window, "  Conninfo: %s:%s %s@%s\n",
-            conn_opts[console_index]->hostaddr,
-            conn_opts[console_index]->port,
-            conn_opts[console_index]->user,
-            conn_opts[console_index]->dbname);
+            conn_opts->hostaddr,
+            conn_opts->port,
+            conn_opts->user,
+            conn_opts->dbname);
 }
 
 /*
@@ -819,6 +817,41 @@ void print_cpu_usage(WINDOW * window, struct stats_cpu_struct *st_cpu[])
 
 /*
  **************************************************************************** 
+ * Print current pgbouncer summary info: total clients, servers, etc.
+ *
+ * IN:
+ * @window          Window where info will be printed.
+ * @conn            Current pgbouncer connection.
+ **************************************************************************** 
+ */
+void print_pgbouncer_summary(WINDOW * window, PGconn *conn)
+{
+    int cl_count, sv_count, pl_count, db_count;
+    enum context query_context;
+    PGresult *res;
+
+    query_context = pools;
+    res = do_query(conn, query_context);
+    pl_count = PQntuples(res);
+
+    query_context = databases;
+    res = do_query(conn, query_context);
+    db_count = PQntuples(res);
+
+    query_context = clients;
+    res = do_query(conn, query_context);
+    cl_count = PQntuples(res);
+
+    query_context = servers;
+    res = do_query(conn, query_context);
+    sv_count = PQntuples(res);
+
+    wprintw(window,
+            " Pgbouncer: pools: %-5i databases: %-5i clients: %-5i servers: %-5i\n",
+            pl_count, db_count, cl_count, sv_count);
+}
+/*
+ **************************************************************************** 
  * 
  **************************************************************************** 
  */
@@ -955,15 +988,15 @@ int main (int argc, char *argv[])
                     break;
             }
         } else {
-            res = do_query(conns[console_index], query_context);
             wclear(w_summary);
             print_title(w_summary, progname);
             print_loadavg(w_summary);
             print_cpu_usage(w_summary, st_cpu);
-            print_conninfo(w_summary, conn_opts, console_index);
-            wprintw(w_summary, " Pgbouncer: pid: -----, pgbouncer cpu usage: --.- us, --.- sy, network: -- in, -- out\n");
+            print_conninfo(w_summary, conn_opts[console_index]);
+            print_pgbouncer_summary(w_summary, conns[console_index]);
             wrefresh(w_summary);
 
+            res = do_query(conns[console_index], query_context);
             print_data(w_answer, query_context, res);
             wrefresh(w_cmdline);
             wclear(w_cmdline);

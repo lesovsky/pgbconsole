@@ -119,8 +119,7 @@ void
     print_loadavg(WINDOW * window);
 
 void
-    print_conninfo(WINDOW * window, struct conn_opts_struct *conn_opts[],
-            int console_index);
+    print_conninfo(WINDOW * window, struct conn_opts_struct *conn_opts);
 
 void
     init_conn_opts(struct conn_opts_struct *conn_opts[]);
@@ -140,6 +139,8 @@ unsigned long long
 double
     ll_sp_value(unsigned long long value1, unsigned long long value2,
                 unsigned long long itv);
+void print_pgbouncer_summary(WINDOW * window, PGconn *conn);
+
 void
     key_processing(int ch);
 int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
