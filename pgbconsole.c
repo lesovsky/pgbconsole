@@ -919,8 +919,10 @@ void do_reload(WINDOW * window, PGconn * conn)
  */
 void do_suspend(WINDOW * window, PGconn * conn)
 {
-    if (PQresultStatus(PQexec(conn, "SUSPEND")) != PGRES_COMMAND_OK)
-        wprintw(window, "Suspend current pgbouncer: failed.");
+    PGresult *res;
+    res = PQexec(conn, "SUSPEND");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+        wprintw(window, "Suspend current pgbouncer: %s", PQresultErrorMessage(res));
     else 
         wprintw(window, "Suspend current pgbouncer: success.");
 }
@@ -938,12 +940,13 @@ void do_suspend(WINDOW * window, PGconn * conn)
  */
 void do_pause(WINDOW * window, PGconn * conn)
 {
+    PGresult *res;
     char query[128] = "PAUSE";
     char dbname[128];
 
     echo();
     nocbreak();
-    nodelay(stdscr, FALSE);
+    nodelay(window, FALSE);
 
     wprintw(window, "Database to pause [default database = all] ");
     wrefresh(window);
@@ -953,17 +956,66 @@ void do_pause(WINDOW * window, PGconn * conn)
         strcat(query, " ");
         strcat(query, dbname);
     }
-    
-    if (PQresultStatus(PQexec(conn, query)) != PGRES_COMMAND_OK)
-        wprintw(window, "Pause current pgbouncer: failed.");
+
+    res = PQexec(conn, query);   
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) 
+        wprintw(window, "Pause current pgbouncer: %s", PQresultErrorMessage(res));
     else 
         wprintw(window, "Pause current pgbouncer: success.");
 
     noecho();
     cbreak();
-    nodelay(stdscr, TRUE);
+    nodelay(window, TRUE);
 }
 
+/*
+ ********************************************* Pgbouncer actions functions **
+ * Read input from cmd window.
+ *
+ * IN:
+ * @window          Window where pause status will be printed.
+ *
+ * OUT:
+ * @ret_code        Flag which determines when function finish with ESC.
+ *
+ * RETURNS:
+ * Pointer to the input string.
+ **************************************************************************** 
+ */
+char * cmd_readline(WINDOW *window, bool * with_esc)
+{
+    int ch;
+    int i = 0;
+    char * str;
+    str = (char *) malloc(sizeof(char) * 128);
+
+    while ((ch = wgetch(window)) != ERR ) {
+        if (ch == 27) {
+            wclear(window);
+            wprintw(window, "Do nothing. Operation canceled. ");
+            nodelay(window, TRUE);
+            *with_esc = true;              // Finish with ESC.
+            strcpy(str, "");
+            return str;
+        } else if (ch == 10) {
+            str[i] = '\0';
+            nodelay(window, TRUE);
+            *with_esc = false;              // Normal finish with Newline.
+            return str;
+        } else if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127) {
+            if (i > 0) {
+                i--;
+                wdelch(window);
+            } else {
+                wmove(window, 0, 38);
+                continue;
+            }
+        } else {
+            str[i] = ch;
+            i++;
+        }
+    }
+}
 /*
  ********************************************* Pgbouncer actions functions **
  * Kill pgbouncer. Immediately drop all client and server connections on 
@@ -976,32 +1028,42 @@ void do_pause(WINDOW * window, PGconn * conn)
  */
 void do_kill(WINDOW * window, PGconn * conn)
 {
+    PGresult *res;
     char query[128] = "KILL";
     char dbname[128];
+    bool * with_esc;
+    with_esc = (bool *) malloc(sizeof(bool));
 
     echo();
-    nocbreak();
-    nodelay(stdscr, FALSE);
+    cbreak();
+    nodelay(window, FALSE);
+    keypad(window, TRUE);
 
-    wprintw(window, "Database to kill [must not be empty] ");
+    wprintw(window, "Database to kill [must not be empty]: ");
     wrefresh(window);
 
-    wgetstr(window, dbname);
-    if (strcmp(dbname, "")) {
-        strcat(query, " ");
-        strcat(query, dbname);
+    strcpy(dbname, cmd_readline(window, with_esc));
+    if (strlen(dbname) != 0 && *with_esc == false) {
+       if (strlen(dbname) != 0) {
+            strcat(query, " ");
+            strcat(query, dbname);
         
-        if (PQresultStatus(PQexec(conn, query)) != PGRES_COMMAND_OK)
-            wprintw(window, "Kill database %s: failed.", dbname);
-        else 
-            wprintw(window, "Resume database %s: success.", dbname);
-    } else {
+            res = PQexec(conn, query);
+        
+            if (PQresultStatus(res) != PGRES_COMMAND_OK)
+                wprintw(window, "Kill database %s: %s",
+                        dbname, PQresultErrorMessage(res));
+            else 
+                wprintw(window, "Kill database %s: success.", dbname);
+        }
+    } else if (strlen(dbname) == 0 && *with_esc == false ) {
         wprintw(window, "A database is required.");
     }
 
     noecho();
     cbreak();
-    nodelay(stdscr, TRUE);
+    nodelay(window, TRUE);
+    keypad(window, FALSE);
 }
 
 /*
@@ -1015,12 +1077,13 @@ void do_kill(WINDOW * window, PGconn * conn)
  */
 void do_resume(WINDOW * window, PGconn * conn)
 {
+    PGresult *res;
     char query[128] = "RESUME";
     char dbname[128];
 
     echo();
     nocbreak();
-    nodelay(stdscr, FALSE);
+    nodelay(window, FALSE);
 
     wprintw(window, "Database to resume [default database = all] ");
     wrefresh(window);
@@ -1030,15 +1093,16 @@ void do_resume(WINDOW * window, PGconn * conn)
         strcat(query, " ");
         strcat(query, dbname);
     }
-    
-    if (PQresultStatus(PQexec(conn, query)) != PGRES_COMMAND_OK)
-        wprintw(window, "Resume current pgbouncer: failed.");
+ 
+    res = PQexec(conn, query);   
+    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+        wprintw(window, "Resume current pgbouncer: %s.", PQresultErrorMessage(res));
     else 
         wprintw(window, "Resume current pgbouncer: success.");
 
     noecho();
     cbreak();
-    nodelay(stdscr, TRUE);
+    nodelay(window, TRUE);
 }
 
 /*
@@ -1118,6 +1182,9 @@ int main (int argc, char *argv[])
                     break;
                 case 'K':
                     do_kill(w_cmdline, conns[console_index]);
+                    break;
+                case 'Z':
+                    wprintw(w_cmdline, "Shutdown pgbouncer");
                     break;
                 case 'p':
                     wprintw(w_cmdline, "Show pools");

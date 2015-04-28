@@ -147,6 +147,7 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
     int ch, int console_index, int console_no);
 
 /* Pgbouncer action function */
+char * cmd_readline(WINDOW * window, bool * with_esc);
 void do_reload(WINDOW * window, PGconn *conn);
 void do_suspend(WINDOW * window, PGconn *conn);
 void do_pause(WINDOW * window, PGconn *conn);
