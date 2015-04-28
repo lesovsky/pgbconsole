@@ -889,6 +889,56 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
 }
 
 /*
+ ****************************************************************************
+ * Read input from cmd window.
+ *
+ * IN:
+ * @window          Window where pause status will be printed.
+ * @pos             When you delete wrong input, cursor do not moving beyond.
+ *
+ * OUT:
+ * @with_esc        Flag which determines when function finish with ESC.
+ *
+ * RETURNS:
+ * Pointer to the input string.
+ **************************************************************************** 
+ */
+char * cmd_readline(WINDOW *window, int pos, bool * with_esc)
+{
+    int ch;
+    int i = 0;
+    char * str;
+    str = (char *) malloc(sizeof(char) * 128);
+
+    while ((ch = wgetch(window)) != ERR ) {
+        if (ch == 27) {
+            wclear(window);
+            wprintw(window, "Do nothing. Operation canceled. ");
+            nodelay(window, TRUE);
+            *with_esc = true;              // Finish with ESC.
+            strcpy(str, "");
+            return str;
+        } else if (ch == 10) {
+            str[i] = '\0';
+            nodelay(window, TRUE);
+            *with_esc = false;              // Normal finish with Newline.
+            return str;
+        } else if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127) {
+            if (i > 0) {
+                i--;
+                wdelch(window);
+            } else {
+                wmove(window, 0, pos);
+                continue;
+            }
+        } else {
+            str[i] = ch;
+            i++;
+        }
+    }
+}
+
+/*
  ********************************************* Pgbouncer actions functions **
  * Reload pgbouncer. The PgBouncer process will reload its configuration file 
  * and update changeable settings.
@@ -943,79 +993,42 @@ void do_pause(WINDOW * window, PGconn * conn)
     PGresult *res;
     char query[128] = "PAUSE";
     char dbname[128];
+    bool * with_esc;
+    with_esc = (bool *) malloc(sizeof(bool));
 
     echo();
-    nocbreak();
+    cbreak();
     nodelay(window, FALSE);
+    keypad(window, TRUE);
 
     wprintw(window, "Database to pause [default database = all] ");
     wrefresh(window);
 
-    wgetstr(window, dbname);
-    if (strcmp(dbname, "")) {
+    strcpy(dbname, cmd_readline(window, 43, with_esc));
+    if (strlen(dbname) != 0 && *with_esc == false) {
         strcat(query, " ");
         strcat(query, dbname);
+        res = PQexec(conn, query);
+        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+            wprintw(window, "Pause pool %s: %s",
+                    dbname, PQresultErrorMessage(res));
+        else 
+                wprintw(window, "Pause pool %s: success.", dbname);
+    } else if (strlen(dbname) == 0 && *with_esc == false ) {
+        res = PQexec(conn, query);
+        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+            wprintw(window, "Pause pool: %s",
+                    PQresultErrorMessage(res));
+        else 
+                wprintw(window, "All pools paused");
     }
-
-    res = PQexec(conn, query);   
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) 
-        wprintw(window, "Pause current pgbouncer: %s", PQresultErrorMessage(res));
-    else 
-        wprintw(window, "Pause current pgbouncer: success.");
-
+                                                                   
     noecho();
     cbreak();
     nodelay(window, TRUE);
+    keypad(window, FALSE);
 }
 
-/*
- ********************************************* Pgbouncer actions functions **
- * Read input from cmd window.
- *
- * IN:
- * @window          Window where pause status will be printed.
- *
- * OUT:
- * @ret_code        Flag which determines when function finish with ESC.
- *
- * RETURNS:
- * Pointer to the input string.
- **************************************************************************** 
- */
-char * cmd_readline(WINDOW *window, bool * with_esc)
-{
-    int ch;
-    int i = 0;
-    char * str;
-    str = (char *) malloc(sizeof(char) * 128);
-
-    while ((ch = wgetch(window)) != ERR ) {
-        if (ch == 27) {
-            wclear(window);
-            wprintw(window, "Do nothing. Operation canceled. ");
-            nodelay(window, TRUE);
-            *with_esc = true;              // Finish with ESC.
-            strcpy(str, "");
-            return str;
-        } else if (ch == 10) {
-            str[i] = '\0';
-            nodelay(window, TRUE);
-            *with_esc = false;              // Normal finish with Newline.
-            return str;
-        } else if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127) {
-            if (i > 0) {
-                i--;
-                wdelch(window);
-            } else {
-                wmove(window, 0, 38);
-                continue;
-            }
-        } else {
-            str[i] = ch;
-            i++;
-        }
-    }
-}
 /*
  ********************************************* Pgbouncer actions functions **
  * Kill pgbouncer. Immediately drop all client and server connections on 
@@ -1042,7 +1055,7 @@ void do_kill(WINDOW * window, PGconn * conn)
     wprintw(window, "Database to kill [must not be empty]: ");
     wrefresh(window);
 
-    strcpy(dbname, cmd_readline(window, with_esc));
+    strcpy(dbname, cmd_readline(window, 38, with_esc));
     if (strlen(dbname) != 0 && *with_esc == false) {
        if (strlen(dbname) != 0) {
             strcat(query, " ");
@@ -1080,29 +1093,53 @@ void do_resume(WINDOW * window, PGconn * conn)
     PGresult *res;
     char query[128] = "RESUME";
     char dbname[128];
+    bool * with_esc;
+    with_esc = (bool *) malloc(sizeof(bool));
 
     echo();
-    nocbreak();
+    cbreak();
     nodelay(window, FALSE);
+    keypad(window, TRUE);
 
     wprintw(window, "Database to resume [default database = all] ");
     wrefresh(window);
 
-    wgetstr(window, dbname);
-    if (strcmp(dbname, "")) {
+    strcpy(dbname, cmd_readline(window, 44, with_esc));
+    if (strlen(dbname) != 0 && *with_esc == false) {
         strcat(query, " ");
         strcat(query, dbname);
+        res = PQexec(conn, query);
+        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+            wprintw(window, "Resume pool %s: %s",
+                    dbname, PQresultErrorMessage(res));
+        else 
+                wprintw(window, "Resume pool %s: success.", dbname);
+    } else if (strlen(dbname) == 0 && *with_esc == false ) {
+        res = PQexec(conn, query);
+        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+            wprintw(window, "Resume pool: %s",
+                    PQresultErrorMessage(res));
+        else 
+                wprintw(window, "All pools resumed");
     }
- 
-    res = PQexec(conn, query);   
-    if (PQresultStatus(res) != PGRES_COMMAND_OK)
-        wprintw(window, "Resume current pgbouncer: %s.", PQresultErrorMessage(res));
-    else 
-        wprintw(window, "Resume current pgbouncer: success.");
 
+/*    
+ *   wgetstr(window, dbname);
+ *   if (strcmp(dbname, "")) {
+ *       strcat(query, " ");
+ *       strcat(query, dbname);
+ *   }
+ *
+ *   res = PQexec(conn, query);   
+ *   if (PQresultStatus(res) != PGRES_COMMAND_OK)
+ *       wprintw(window, "Resume current pgbouncer: %s.", PQresultErrorMessage(res));
+ *   else 
+ *       wprintw(window, "Resume current pgbouncer: success.");
+*/
     noecho();
     cbreak();
     nodelay(window, TRUE);
+    keypad(window, FALSE);
 }
 
 /*
