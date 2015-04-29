@@ -4,7 +4,6 @@
  */
  
 /* sizes and limits */
-#include "libpq-fe.h"
 #define BUFFERSIZE 4096
 #define MAX_CONSOLE 8
 
@@ -24,6 +23,10 @@
 
 #define HZ              hz
 unsigned int hz;
+
+/* PostgreSQL answers */
+#define PG_CMD_OK PGRES_COMMAND_OK
+#define PG_TUP_OK PGRES_TUPLES_OK
 
 /* Struct which define connection options */
 struct conn_opts_struct
@@ -119,7 +122,7 @@ void
     print_loadavg(WINDOW * window);
 
 void
-    print_conninfo(WINDOW * window, struct conn_opts_struct *conn_opts);
+    print_conninfo(WINDOW * window, struct conn_opts_struct *conn_opts, int console_no);
 
 void
     init_conn_opts(struct conn_opts_struct *conn_opts[]);
@@ -146,11 +149,13 @@ void
 int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
     int ch, int console_index, int console_no);
 
-/* Pgbouncer action function */
 char * cmd_readline(WINDOW * window, int pos, bool * with_esc);
+
+/* Pgbouncer action function */
 void do_reload(WINDOW * window, PGconn *conn);
 void do_suspend(WINDOW * window, PGconn *conn);
 void do_pause(WINDOW * window, PGconn *conn);
 void do_resume(WINDOW * window, PGconn *conn);
 void do_kill(WINDOW * window, PGconn *conn);
+void do_shutdown(WINDOW * window, PGconn *conn);
 /* END Pgbouncer action functions */

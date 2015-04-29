@@ -366,7 +366,7 @@ PGresult * do_query(PGconn *conn, enum context query_context)
             break;
     }
     res = PQexec(conn, query);
-    if ( PQresultStatus(res) != PGRES_TUPLES_OK ) {
+    if ( PQresultStatus(res) != PG_TUP_OK ) {
         puts("We didn't get any data.");
         return NULL;
     }
@@ -563,9 +563,10 @@ void print_loadavg(WINDOW * window)
  * @conn_opts       Struct with connections options.
  **************************************************************************** 
  */
-void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts)
+void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts, int console_no)
 {
-        wprintw(window, "  Conninfo: %s:%s %s@%s\n",
+        wprintw(window, " console %i: %s:%s %s@%s\n",
+            console_no,
             conn_opts->hostaddr,
             conn_opts->port,
             conn_opts->user,
@@ -588,7 +589,7 @@ void init_stats(struct stats_cpu_struct *st_cpu[])
         if ((st_cpu[i] = (struct stats_cpu_struct *) 
                     malloc(STATS_CPU_SIZE * 2)) == NULL) {
             perror("malloc");
-            exit(4);
+            exit(EXIT_FAILURE);
         }
         memset(st_cpu[i], 0, STATS_CPU_SIZE * 2);
     }
@@ -774,7 +775,7 @@ void write_cpu_stat_raw(WINDOW * window, struct stats_cpu_struct *st_cpu[],
         int curr, unsigned long long itv)
 {
         wprintw(window, 
-                "      %%Cpu: %4.1f us, %4.1f sy, %4.1f ni, %4.1f id, %4.1f wa, %4.1f hi, %4.1f si, %4.1f st\n",
+                "      %%cpu: %4.1f us, %4.1f sy, %4.1f ni, %4.1f id, %4.1f wa, %4.1f hi, %4.1f si, %4.1f st\n",
                ll_sp_value(st_cpu[!curr]->cpu_user, st_cpu[curr]->cpu_user, itv),
                ll_sp_value(st_cpu[!curr]->cpu_sys + st_cpu[!curr]->cpu_softirq + st_cpu[!curr]->cpu_hardirq,
                            st_cpu[curr]->cpu_sys + st_cpu[curr]->cpu_softirq + st_cpu[curr]->cpu_hardirq, itv),
@@ -847,7 +848,7 @@ void print_pgbouncer_summary(WINDOW * window, PGconn *conn)
     sv_count = PQntuples(res);
 
     wprintw(window,
-            " Pgbouncer: pools: %-5i databases: %-5i clients: %-5i servers: %-5i\n",
+            " pgbouncer: pools: %-5i databases: %-5i clients: %-5i servers: %-5i\n",
             pl_count, db_count, cl_count, sv_count);
 }
 /*
@@ -881,10 +882,12 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
     if ( conn_opts[ch - '0' - 1]->conn_used ) {
         console_no = ch - '0', console_index = console_no - 1;
         wprintw(window,
-                "Switch to another pgbouncer connection (console %i)", console_no);
+                "Switch to another pgbouncer connection (console %i)",
+                console_no);
     } else
         wprintw(window,
-                "Do not switch because no connection associated (stay on console %i)", console_no);
+                "Do not switch because no connection associated (stay on console %i)",
+                console_no);
     return console_index;
 }
 
@@ -950,7 +953,7 @@ char * cmd_readline(WINDOW *window, int pos, bool * with_esc)
  */
 void do_reload(WINDOW * window, PGconn * conn)
 {
-    if (PQresultStatus(PQexec(conn, "RELOAD")) != PGRES_COMMAND_OK)
+    if (PQresultStatus(PQexec(conn, "RELOAD")) != PG_CMD_OK)
         wprintw(window, "Reload current pgbouncer: failed.");
     else 
         wprintw(window, "Reload current pgbouncer: success.");
@@ -971,7 +974,7 @@ void do_suspend(WINDOW * window, PGconn * conn)
 {
     PGresult *res;
     res = PQexec(conn, "SUSPEND");
-    if (PQresultStatus(res) != PGRES_COMMAND_OK)
+    if (PQresultStatus(res) != PG_CMD_OK)
         wprintw(window, "Suspend current pgbouncer: %s", PQresultErrorMessage(res));
     else 
         wprintw(window, "Suspend current pgbouncer: success.");
@@ -1009,14 +1012,14 @@ void do_pause(WINDOW * window, PGconn * conn)
         strcat(query, " ");
         strcat(query, dbname);
         res = PQexec(conn, query);
-        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+        if (PQresultStatus(res) != PG_CMD_OK)
             wprintw(window, "Pause pool %s: %s",
                     dbname, PQresultErrorMessage(res));
         else 
                 wprintw(window, "Pause pool %s: success.", dbname);
     } else if (strlen(dbname) == 0 && *with_esc == false ) {
         res = PQexec(conn, query);
-        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+        if (PQresultStatus(res) != PG_CMD_OK)
             wprintw(window, "Pause pool: %s",
                     PQresultErrorMessage(res));
         else 
@@ -1063,7 +1066,7 @@ void do_kill(WINDOW * window, PGconn * conn)
         
             res = PQexec(conn, query);
         
-            if (PQresultStatus(res) != PGRES_COMMAND_OK)
+            if (PQresultStatus(res) != PG_CMD_OK)
                 wprintw(window, "Kill database %s: %s",
                         dbname, PQresultErrorMessage(res));
             else 
@@ -1109,33 +1112,61 @@ void do_resume(WINDOW * window, PGconn * conn)
         strcat(query, " ");
         strcat(query, dbname);
         res = PQexec(conn, query);
-        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+        if (PQresultStatus(res) != PG_CMD_OK)
             wprintw(window, "Resume pool %s: %s",
                     dbname, PQresultErrorMessage(res));
         else 
                 wprintw(window, "Resume pool %s: success.", dbname);
     } else if (strlen(dbname) == 0 && *with_esc == false ) {
         res = PQexec(conn, query);
-        if (PQresultStatus(res) != PGRES_COMMAND_OK)
+        if (PQresultStatus(res) != PG_CMD_OK)
             wprintw(window, "Resume pool: %s",
                     PQresultErrorMessage(res));
         else 
                 wprintw(window, "All pools resumed");
     }
 
-/*    
- *   wgetstr(window, dbname);
- *   if (strcmp(dbname, "")) {
- *       strcat(query, " ");
- *       strcat(query, dbname);
- *   }
+    noecho();
+    cbreak();
+    nodelay(window, TRUE);
+    keypad(window, FALSE);
+}
+
+/*
+ ********************************************* Pgbouncer actions functions **
+ * Shutdown pgbouncer. The PgBouncer process will exit.
  *
- *   res = PQexec(conn, query);   
- *   if (PQresultStatus(res) != PGRES_COMMAND_OK)
- *       wprintw(window, "Resume current pgbouncer: %s.", PQresultErrorMessage(res));
- *   else 
- *       wprintw(window, "Resume current pgbouncer: success.");
-*/
+ * IN:
+ * @window          Window where pause status will be printed.
+ * @conn            Current pgbouncer connection.
+ **************************************************************************** 
+ */
+void do_shutdown(WINDOW * window, PGconn * conn)
+{
+    PGresult *res;
+    char query[128] = "SHUTDOWN";
+    char confirm[3];
+    bool * with_esc;
+    with_esc = (bool *) malloc(sizeof(bool));
+
+    echo();
+    cbreak();
+    nodelay(window, FALSE);
+    keypad(window, TRUE);
+
+    wprintw(window, "Shutdown pgbouncer. Press YES to confirm. ");
+    wrefresh(window);
+
+    strcpy(confirm, cmd_readline(window, 43, with_esc));
+    if (strlen(confirm) != 0 && !strcmp(confirm, "YES") && *with_esc == false) {
+        res = PQexec(conn, query);
+        if (PQresultStatus(res) != PG_CMD_OK)
+            wprintw(window, "Pgbouncer shutdown was successful with: %s",
+                    PQresultErrorMessage(res));
+    } else if ((strlen(confirm) == 0 || strcmp(confirm, "YES")) && *with_esc == false ) {
+            wprintw(window, "Cancel shutdown. Not confirmed.");
+    }
+
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -1149,12 +1180,12 @@ void do_resume(WINDOW * window, PGconn * conn)
  */
 int main (int argc, char *argv[])
 {
-    char * progname = argv[0];
     PGresult    *res;
     struct conn_opts_struct *conn_opts[MAX_CONSOLE];
     PGconn * conns[8];
     enum context query_context;
-    int console_no = 1, console_index = 0;
+    static int console_no = 1;
+    static int console_index = 0;
     int ch;
     WINDOW  *w_summary, *w_cmdline, *w_answer;
     struct stats_cpu_struct *st_cpu[2];
@@ -1195,6 +1226,7 @@ int main (int argc, char *argv[])
             switch (ch) {
                 case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
                     console_index = switch_conn(w_cmdline, conn_opts, ch, console_index, console_no);
+                    console_no = console_index + 1;
                     break;
                 case 'N':
                     wprintw(w_cmdline, "Create new connection");
@@ -1221,7 +1253,7 @@ int main (int argc, char *argv[])
                     do_kill(w_cmdline, conns[console_index]);
                     break;
                 case 'Z':
-                    wprintw(w_cmdline, "Shutdown pgbouncer");
+                    do_shutdown(w_cmdline, conns[console_index]);
                     break;
                 case 'p':
                     wprintw(w_cmdline, "Show pools");
@@ -1249,10 +1281,10 @@ int main (int argc, char *argv[])
             }
         } else {
             wclear(w_summary);
-            print_title(w_summary, progname);
+            print_title(w_summary, argv[0]);
             print_loadavg(w_summary);
             print_cpu_usage(w_summary, st_cpu);
-            print_conninfo(w_summary, conn_opts[console_index]);
+            print_conninfo(w_summary, conn_opts[console_index], console_no);
             print_pgbouncer_summary(w_summary, conns[console_index]);
             wrefresh(w_summary);
 
