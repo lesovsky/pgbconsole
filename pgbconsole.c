@@ -311,7 +311,7 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
         if (conn_opts[i]->conn_used) {
             conns[i] = PQconnectdb(conn_opts[i]->conninfo);
             if ( PQstatus(conns[i]) == CONNECTION_BAD )
-                puts("We were unable to connect to the database");
+                puts("Unable to connect to the pgbouncer");
         }
     }
 }
@@ -332,6 +332,29 @@ void close_connections(PGconn * conns[])
         PQfinish(conns[i]);
 }
 
+
+/*
+ **************************************************************************** 
+ * Chech connection state, try reconnect if failed.
+ *
+ * IN:
+ * @window          Window where status will be printed.
+ * @conn_opts       Conn options associated with current console.
+ * @conn            Connection associated with current console.
+ **************************************************************************** 
+ */
+void reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn)
+{
+    if (PQstatus(conn) == CONNECTION_BAD) {
+        wclear(window);
+        PQreset(conn);
+        conn = PQconnectdb(conn_opts->conninfo);
+        wprintw(window,
+                "The connection to the server was lost. Attempting reconnect.");
+        wrefresh(window);
+        sleep(1);
+    } 
+}
 /*
  **************************************************************************** 
  * Send query to pgbouncer.
@@ -561,16 +584,31 @@ void print_loadavg(WINDOW * window)
  * IN:
  * @window          Window where info will be printed.
  * @conn_opts       Struct with connections options.
+ * @conn            Current connection.
+ * @console_no      Current console number.
  **************************************************************************** 
  */
-void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts, int console_no)
+void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn *conn, int console_no)
 {
-        wprintw(window, " console %i: %s:%s %s@%s\n",
+    static char state[8];
+    switch (PQstatus(conn)) {
+        case CONNECTION_OK:
+            strcpy(state, "ok");
+            break;
+        case CONNECTION_BAD:
+            strcpy(state, "failed");
+            break;
+        default:
+            strcpy(state, "unknown");
+            break;
+    }
+        wprintw(window, " console %i: %s:%s %s@%s\t connection state: %s\n",
             console_no,
             conn_opts->hostaddr,
             conn_opts->port,
             conn_opts->user,
-            conn_opts->dbname);
+            conn_opts->dbname,
+            state);
 }
 
 /*
@@ -1280,11 +1318,12 @@ int main (int argc, char *argv[])
                     break;
             }
         } else {
+            reconnect_if_failed(w_cmdline, conn_opts[console_index], conns[console_index]);
             wclear(w_summary);
             print_title(w_summary, argv[0]);
             print_loadavg(w_summary);
             print_cpu_usage(w_summary, st_cpu);
-            print_conninfo(w_summary, conn_opts[console_index], console_no);
+            print_conninfo(w_summary, conn_opts[console_index], conns[console_index], console_no);
             print_pgbouncer_summary(w_summary, conns[console_index]);
             wrefresh(w_summary);
 

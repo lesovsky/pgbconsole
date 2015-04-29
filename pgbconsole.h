@@ -105,6 +105,8 @@ PGresult *
 void
     open_connections(struct conn_opts_struct *conn_opts[], PGconn * conns[]);
 void
+    reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn);
+void
     close_connections(PGconn * conns[]);
 int
     key_is_pressed(void);
@@ -122,7 +124,7 @@ void
     print_loadavg(WINDOW * window);
 
 void
-    print_conninfo(WINDOW * window, struct conn_opts_struct *conn_opts, int console_no);
+    print_conninfo(WINDOW * window, struct conn_opts_struct *conn_opts, PGconn *conn, int console_no);
 
 void
     init_conn_opts(struct conn_opts_struct *conn_opts[]);
