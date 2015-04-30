@@ -318,6 +318,81 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
 
 /*
  **************************************************************************** 
+ * Open new one connection.
+ *
+ * IN:
+ * @window          Window where result is printed.
+ * @conn_opts       Connections options array.
+ *
+ * OUT:
+ * @conns           Array of connections.
+ * @conn_opts       Connections options array.
+ *
+ * RETURNS:
+ * Add connection into conns array and return new console index.
+ **************************************************************************** 
+ */
+int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
+        PGconn * conns[], int console_index)
+{
+    int i;
+    char params[128];
+    bool * with_esc;
+    with_esc = (bool *) malloc(sizeof(bool));
+
+    echo();
+    cbreak();
+    nodelay(window, FALSE);
+    keypad(window, TRUE);
+
+    for (i = 0; i < MAX_CONSOLE; i++) {
+        if (conn_opts[i]->conn_used == false) {
+            wprintw(window, "Enter new connection parameters, format \"host port username dbname\": ");
+            wrefresh(window);
+
+            strcpy(params, cmd_readline(window, 69, with_esc));
+            if (strlen(params) != 0 && *with_esc == false) {
+                sscanf(params, "%s %s %s %s",
+                    &conn_opts[i]->hostaddr,    &conn_opts[i]->port,
+                    &conn_opts[i]->user,        &conn_opts[i]->dbname);
+                conn_opts[i]->conn_used = true;
+                strcat(conn_opts[i]->conninfo, "hostaddr=");
+                strcat(conn_opts[i]->conninfo, conn_opts[i]->hostaddr);
+                strcat(conn_opts[i]->conninfo, " port=");
+                strcat(conn_opts[i]->conninfo, conn_opts[i]->port);
+                strcat(conn_opts[i]->conninfo, " user=");
+                strcat(conn_opts[i]->conninfo, conn_opts[i]->user);
+                strcat(conn_opts[i]->conninfo, " dbname=");
+                strcat(conn_opts[i]->conninfo, conn_opts[i]->dbname);
+
+                // check here password need.
+
+                conns[i] = PQconnectdb(conn_opts[i]->conninfo);
+                if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
+                    wprintw(window, "Unable to connect to the pgbouncer");
+                } else {
+                    console_index = conn_opts[i]->terminal;
+                }
+                break;
+            } else if (strlen(params) == 0 && *with_esc == false) {
+                wprintw(window, "Nothing to do.");
+                break;
+            } else 
+                break;
+        } else if (i == MAX_CONSOLE - 1) {
+            wprintw(window, "No free consoles.");
+        }
+    }
+    noecho();
+    cbreak();
+    nodelay(window, TRUE);
+    keypad(window, FALSE);
+
+    return console_index;
+}
+
+/*
+ **************************************************************************** 
  * Close connections to pgbouncers.
  *
  * IN:
@@ -1267,7 +1342,8 @@ int main (int argc, char *argv[])
                     console_no = console_index + 1;
                     break;
                 case 'N':
-                    wprintw(w_cmdline, "Create new connection");
+                    console_index = add_connection(w_cmdline, conn_opts, conns, console_index);
+                    console_no = console_index + 1;
                     break;
                 case 'W':
                     wprintw(w_cmdline, "Save connections into .pgbrc");

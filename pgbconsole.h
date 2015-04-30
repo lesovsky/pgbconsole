@@ -104,6 +104,10 @@ PGresult *
     do_query(PGconn *conn, enum context query_context);
 void
     open_connections(struct conn_opts_struct *conn_opts[], PGconn * conns[]);
+
+int
+    add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
+            PGconn * conns[], int console_index);
 void
     reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn);
 void
