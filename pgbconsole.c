@@ -392,6 +392,103 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
 }
 
 /*
+ ********************************************************* routine function **
+ * Clear single connection options.
+ *
+ * IN:
+ * @conn_opts       Connections options array.
+ * @i               Index of entry in conn_opts array which should cleared.
+ ****************************************************************************
+ */
+void clear_conn_opts(struct conn_opts_struct * conn_opts[], int i)
+{
+    strcpy(conn_opts[i]->hostaddr, "");
+    strcpy(conn_opts[i]->port, "");
+    strcpy(conn_opts[i]->user, "");
+    strcpy(conn_opts[i]->dbname, "");
+    strcpy(conn_opts[i]->password, "");
+    conn_opts[i]->conn_used = false;
+}
+
+/*
+ ********************************************************* routine function **
+ * Shift consoles when current console closes.
+ *
+ * IN:
+ * @conn_opts       Connections options array.
+ * @conns           Connections array.
+ * @i               Index of closed console.
+ *
+ * RETURNS:
+ * Array of conn_opts without closed connection.
+ ****************************************************************************
+ */
+void shift_consoles(struct conn_opts_struct * conn_opts[], PGconn * conns[], int i)
+{
+    while (conn_opts[i + 1]->conn_used != false) {
+        fputc(i, stderr);
+        strcpy(conn_opts[i]->hostaddr,  conn_opts[i + 1]->hostaddr);
+        strcpy(conn_opts[i]->port,      conn_opts[i + 1]->port);
+        strcpy(conn_opts[i]->user,      conn_opts[i + 1]->user);
+        strcpy(conn_opts[i]->dbname,    conn_opts[i + 1]->dbname);
+        strcpy(conn_opts[i]->password,  conn_opts[i + 1]->password);
+        conns[i] = conns[i + 1];
+        i++;
+        if (i == MAX_CONSOLE - 1)
+            break;
+    }
+    conn_opts[i]->conn_used = false;
+}
+
+/*
+ ***************************************************** key press functions ** 
+ * Close current connection.
+ *
+ * IN:
+ * @window          Window where result is printed.
+ * @conn_opts       Connections options array.
+ *
+ * OUT:
+ * @conns           Array of connections.
+ * @conn_opts       Connections options array.
+ *
+ * RETURNS:
+ * Close current connection (remove from conns array) and return prvious 
+ * console index.
+ **************************************************************************** 
+ */
+int close_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
+        PGconn * conns[], int console_index)
+{
+    int i = console_index;
+    PQclear;
+    PQfinish(conns[console_index]);
+
+    wprintw(window, "Close current pgbouncer connection.");
+    if (i == 0) {                               // first console active
+        if (conn_opts[i + 1]->conn_used) {
+            shift_consoles(conn_opts, conns, i);
+        } else {
+            wrefresh(window);
+            endwin();
+            exit(EXIT_SUCCESS);
+        }
+    } else if (i == (MAX_CONSOLE - 1)) {        // last possible console active
+        clear_conn_opts(conn_opts, i);
+        console_index = console_index - 1;
+    } else {                                    // in the middle console active
+        if (conn_opts[i + 1]->conn_used) {
+            shift_consoles(conn_opts, conns, i);
+        } else {
+            clear_conn_opts(conn_opts, i);
+            console_index = console_index - 1;
+        }
+    }
+
+    return console_index;
+}
+
+/*
  **************************************************************************** 
  * Close connections to pgbouncers.
  *
@@ -1343,6 +1440,11 @@ int main (int argc, char *argv[])
                     break;
                 case 'N':
                     console_index = add_connection(w_cmdline, conn_opts, conns, console_index);
+                    console_no = console_index + 1;
+                    break;
+                case 4:    
+//                    wprintw(w_cmdline, "Close current console");
+                    console_index = close_connection(w_cmdline, conn_opts, conns, console_index);
                     console_no = console_index + 1;
                     break;
                 case 'W':

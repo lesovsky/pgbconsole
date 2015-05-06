@@ -104,9 +104,11 @@ PGresult *
     do_query(PGconn *conn, enum context query_context);
 void
     open_connections(struct conn_opts_struct *conn_opts[], PGconn * conns[]);
-
 int
     add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
+            PGconn * conns[], int console_index);
+int
+    close_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
             PGconn * conns[], int console_index);
 void
     reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn);
@@ -114,7 +116,10 @@ void
     close_connections(PGconn * conns[]);
 int
     key_is_pressed(void);
-
+void
+    shift_consoles(struct conn_opts_struct * conn_opts[], PGconn * conns[], int i);
+void
+    clear_conn_opts(struct conn_opts_struct * conn_opt[], int i);
 void
     print_data(WINDOW * window, enum context query_context, PGresult *res);
 char * 
