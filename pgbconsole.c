@@ -1384,6 +1384,48 @@ void do_shutdown(WINDOW * window, PGconn * conn)
 }
 
 /*
+ ****************************************************** key press function **
+ * Write connection information into ~/.pgbrc.
+ *
+ * IN:
+ * @window          Window where result will be printed.
+ * @conn_opts       Array of connection options.
+ **************************************************************************** 
+ */
+void write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[])
+{
+    int i = 0;
+    FILE *fp;
+    static char pgbrcpath[PATH_MAX];
+    struct passwd *pw = getpwuid(getuid());
+    struct stat statbuf;
+
+    strcpy(pgbrcpath, pw->pw_dir);
+    strcat(pgbrcpath, "/");
+    strcat(pgbrcpath, PGBRC_FILE);
+    
+    if ((fp = fopen(pgbrcpath, "w")) != NULL ) {
+        while (conn_opts[i]->conn_used) {
+            fprintf(fp, "%s:%s:%s:%s:%s\n",
+                    conn_opts[i]->hostaddr, conn_opts[i]->port,
+                    conn_opts[i]->dbname,   conn_opts[i]->user,
+                    conn_opts[i]->password);
+            i++;
+        }
+        wprintw(window, "Wrote configuration to '%s'", pgbrcpath);
+
+        fclose(fp);
+
+        stat(pgbrcpath, &statbuf);
+        if (statbuf.st_mode & (S_IRWXG | S_IRWXO)) {
+            chmod(pgbrcpath, S_IRUSR|S_IWUSR);
+        }
+    } else {
+        wprintw(window, "Failed write configuration to '%s'", pgbrcpath);
+    }
+}
+
+/*
  **************************************************************************** 
  * Main entry for pgbconsole program.
  **************************************************************************** 
@@ -1442,13 +1484,13 @@ int main (int argc, char *argv[])
                     console_index = add_connection(w_cmdline, conn_opts, conns, console_index);
                     console_no = console_index + 1;
                     break;
-                case 4:    
-//                    wprintw(w_cmdline, "Close current console");
+                case 4:             // Ctrl + D 
                     console_index = close_connection(w_cmdline, conn_opts, conns, console_index);
                     console_no = console_index + 1;
                     break;
                 case 'W':
-                    wprintw(w_cmdline, "Save connections into .pgbrc");
+//                    wprintw(w_cmdline, "Save connections into .pgbrc");
+                    write_pgbrc(w_cmdline, conn_opts);
                     break;
                 case 'L':
                     wprintw(w_cmdline, "Open current pgbouncer log");
@@ -1491,8 +1533,11 @@ int main (int argc, char *argv[])
                     wprintw(w_cmdline, "Show stats");
                     query_context = stats;
                     break;
+                case 'h':
+                    wprintf(w_cmdline, "Print help screen");
+                    break;
                 default:
-                    wprintw(w_cmdline, "unknown command");
+                    wprintw(w_cmdline, "Unknown command - try 'h' for help.");
                     break;
             }
         } else {
