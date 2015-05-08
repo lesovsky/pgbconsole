@@ -588,35 +588,17 @@ void print_data(WINDOW * window, enum context query_context, PGresult *res)
     int    row_count, col_count, row, col, i;
     row_count = PQntuples(res);
     col_count = PQnfields(res);
+    struct colAttrs *columns = (struct colAttrs *) malloc(sizeof(struct colAttrs) * col_count);
 
-    struct colAttrs {
-        char name[20];
-        int width;
-    };
-    struct colAttrs *columns = (struct colAttrs *) 
-        malloc(sizeof(struct colAttrs) * col_count);
-
-    /* calculate column width */
-    for ( col = 0, i = 0; col < col_count; col++, i++) {
-        strcpy(columns[i].name, PQfname(res, col));
-        int colname_len = strlen(PQfname(res, col));
-        int width = colname_len;
-        for (row = 0; row < row_count; row++ ) {
-            int val_len = strlen(PQgetvalue(res, row, col));
-            if ( val_len >= width )
-                width = val_len;
-        }
-        columns[i].width = width + 3;
-    }
-
+    columns = calculate_width(columns, row_count, col_count, res);
     wclear(window);
-
+    /* print column names */
     wattron(window, A_BOLD);
     for ( col = 0, i = 0; col < col_count; col++, i++ )
         wprintw(window, "%-*s", columns[i].width, PQfname(res,col));
     wprintw(window, "\n");
     wattroff(window, A_BOLD);
-
+    /* print rows */
     for ( row = 0; row < row_count; row++ ) {
         for ( col = 0, i = 0; col < col_count; col++, i++ ) {
             wprintw(window,
@@ -627,6 +609,7 @@ void print_data(WINDOW * window, enum context query_context, PGresult *res)
     wprintw(window, "\n");
     wrefresh(window);
 
+    PQclear(res);
     free(columns);
 }
 
