@@ -99,6 +99,8 @@ enum context
 struct colAttrs *
     calculate_width(struct colAttrs *columns, int row_count, int col_count, PGresult *res);
 
+/* end routines */
+
 void
     create_initial_conn(int argc, char *argv[],
                     struct conn_opts_struct *conn_opts[]);
@@ -177,6 +179,8 @@ void
     write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[]);
 void
     show_config(PGconn * conn);
+float
+    change_refresh(WINDOW * window, float interval);
 
 /* Pgbouncer action function */
 void do_reload(WINDOW * window, PGconn *conn);

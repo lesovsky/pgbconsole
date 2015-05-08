@@ -1493,6 +1493,53 @@ void show_config(PGconn * conn)
 }
 
 /*
+ ****************************************************** key press function ** 
+ * Change refresh interval.
+ *
+ * IN:
+ * @window              Window where prompt will be printed.
+ * 
+ * OUT:
+ * @interval            Interval.
+ **************************************************************************** 
+ */
+float change_refresh(WINDOW * window, float interval)
+{
+    float interval_save = interval;
+    char value[8];
+    bool * with_esc;
+    with_esc = (bool *) malloc(sizeof(bool));
+
+    echo();
+    cbreak();
+    nodelay(window, FALSE);
+    keypad(window, TRUE);
+
+    wprintw(window, "Change refresh interval from %.1f to ", interval / 1000000);
+    wrefresh(window);
+
+    strcpy(value, cmd_readline(window, 36, with_esc));
+    if (strlen(value) != 0 && *with_esc == false) {
+        if (strlen(value) != 0) {
+            interval = atof(value);
+            if (interval < 0) {
+                wprintw(window, "Should be positive value.");
+                return interval_save;
+            } else {
+                return interval * 1000000;
+            }
+        }
+     } else if (strlen(value) == 0 && *with_esc == false ) {
+         return interval_save;
+     } else
+         return interval_save;
+
+     noecho();
+     cbreak();
+     nodelay(window, TRUE);
+     keypad(window, FALSE);
+}
+/*
  **************************************************************************** 
  * Main entry for pgbconsole program.
  **************************************************************************** 
@@ -1508,6 +1555,7 @@ int main (int argc, char *argv[])
     int ch;
     WINDOW  *w_summary, *w_cmdline, *w_answer;
     struct stats_cpu_struct *st_cpu[2];
+    float interval = 1000000;
     
     /* Process args... */
     init_conn_opts(conn_opts);
@@ -1602,6 +1650,9 @@ int main (int argc, char *argv[])
                 case 'C':
                     show_config(conns[console_index]);
                     break;
+                case 'I':
+                    interval = change_refresh(w_cmdline, interval);
+                    break;
                 case 'h':
                     wprintf(w_cmdline, "Print help screen");
                     break;
@@ -1623,7 +1674,7 @@ int main (int argc, char *argv[])
             print_data(w_answer, query_context, res);
             wrefresh(w_cmdline);
             wclear(w_cmdline);
-            sleep(1);
+            usleep(interval);
         }
     }
 
