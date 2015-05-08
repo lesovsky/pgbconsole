@@ -462,7 +462,6 @@ int close_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
         PGconn * conns[], int console_index)
 {
     int i = console_index;
-    PQclear;
     PQfinish(conns[console_index]);
 
     wprintw(window, "Close current pgbouncer connection.");
@@ -494,15 +493,15 @@ int close_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
  * Close connections to pgbouncers.
  *
  * IN:
- * @conns       Array of connections
+ * @conns       Array of connections.
  **************************************************************************** 
  */
-void close_connections(PGconn * conns[])
+void close_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
 {
     int i;
-    PQclear;
     for (i = 0; i < MAX_CONSOLE; i++)
-        PQfinish(conns[i]);
+        if (conn_opts[i]->conn_used)
+            PQfinish(conns[i]);
 }
 
 
@@ -1656,6 +1655,11 @@ int main (int argc, char *argv[])
                 case 'h':
                     wprintf(w_cmdline, "Print help screen");
                     break;
+                case 'q':
+                    endwin();
+                    close_connections(conn_opts, conns);
+                    exit(EXIT_SUCCESS);
+                    break;
                 default:
                     wprintw(w_cmdline, "Unknown command - try 'h' for help.");
                     break;
@@ -1680,6 +1684,6 @@ int main (int argc, char *argv[])
 
     /* quit */
     endwin();
-    close_connections(conns);
+    close_connections(conn_opts, conns);
     return 0;
 }

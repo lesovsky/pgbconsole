@@ -126,7 +126,7 @@ int
 void
     reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn);
 void
-    close_connections(PGconn * conns[]);
+    close_connections(struct conn_opts_struct *conn_opts[], PGconn * conns[]);
 int
     key_is_pressed(void);
 void
