@@ -18,6 +18,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
@@ -558,6 +559,9 @@ PGresult * do_query(PGconn *conn, enum context query_context)
             break;
         case stats:
             strcpy(query, "show stats");
+            break;
+        case config:
+            strcpy(query, "show config");
             break;
     }
     res = PQexec(conn, query);
@@ -1426,6 +1430,86 @@ void write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[])
 }
 
 /*
+ ******************************************************** routine function **
+ * Calculate column width for output data.
+ *
+ * IN:
+ * @row_count       Number of rows in query result.
+ * @col_count       Number of columns in query result.
+ * @res             Query result.
+ *
+ * OUT:
+ * @columns         Struct with column names and their max width.
+ ****************************************************************************
+ */
+struct colAttrs * calculate_width(struct colAttrs *columns, int row_count, int col_count, PGresult *res)
+{
+    int i, col, row;
+
+    for ( col = 0, i = 0; col < col_count; col++, i++) {
+        strcpy(columns[i].name, PQfname(res, col));
+        int colname_len = strlen(PQfname(res, col));
+        int width = colname_len;
+        for (row = 0; row < row_count; row++ ) {
+            int val_len = strlen(PQgetvalue(res, row, col));
+            if ( val_len >= width )
+                width = val_len;
+        }
+        columns[i].width = width + 3;
+    }
+    return columns;
+}
+
+/*
+ ****************************************************** key press function ** 
+ * Show the current configuration settings, one per row.
+ *
+ * IN:
+ * @conn        Current pgbouncer connection.
+ *
+ * RETURNS:
+ * 'SHOW CONFIG' output redirected to pager (default less).
+ **************************************************************************** 
+ */
+void show_config(PGconn * conn)
+{
+    int  row_count, col_count, row, col, i;
+    char line[BUFFERSIZE];
+    FILE *fpout;
+    PGresult * res;
+    struct colAttrs *columns;
+
+    res = PQexec(conn, "show config");
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "show config failed: %s", PQerrorMessage(conn));
+        PQclear(res);
+        return;
+    }
+    row_count = PQntuples(res);
+    col_count = PQnfields(res);
+
+    columns = (struct colAttrs *) malloc(sizeof(struct colAttrs) * col_count);
+    columns = calculate_width(columns, row_count, col_count, res);
+
+    fpout = popen(PAGER, "w");
+    fprintf(fpout, " Pgbouncer configuration:\n");
+    /* print column names */
+    for (col = 0, i = 0; col < col_count; col++, i++)
+        fprintf(fpout, " %-*s", columns[i].width, PQfname(res, col));
+    fprintf(fpout, "\n\n");
+    /* print rows */
+    for (row = 0; row < row_count; row++) {
+        for (col = 0, i = 0; col < col_count; col++, i++)
+            fprintf(fpout, " %-*s", columns[i].width, PQgetvalue(res, row, col));
+        fprintf(fpout, "\n");
+    }
+
+    PQclear(res);
+    pclose(fpout);
+    free(columns);
+}
+
+/*
  **************************************************************************** 
  * Main entry for pgbconsole program.
  **************************************************************************** 
@@ -1489,7 +1573,6 @@ int main (int argc, char *argv[])
                     console_no = console_index + 1;
                     break;
                 case 'W':
-//                    wprintw(w_cmdline, "Save connections into .pgbrc");
                     write_pgbrc(w_cmdline, conn_opts);
                     break;
                 case 'L':
@@ -1532,6 +1615,9 @@ int main (int argc, char *argv[])
                 case 'a':
                     wprintw(w_cmdline, "Show stats");
                     query_context = stats;
+                    break;
+                case 'C':
+                    show_config(conns[console_index]);
                     break;
                 case 'h':
                     wprintf(w_cmdline, "Print help screen");

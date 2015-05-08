@@ -20,6 +20,7 @@
 #define PGBRC_FILE      ".pgbrc"
 #define PGBRC_READ_OK   0
 #define PGBRC_READ_ERR  1
+#define PAGER           "${PAGER:-less}"
 
 #define HZ              hz
 unsigned int hz;
@@ -55,6 +56,11 @@ struct stats_cpu_struct {
     unsigned long long cpu_guest_nice;
 };
 
+    struct colAttrs {
+        char name[20];
+        int width;
+    };
+
 #define CONN_OPTS_SIZE (sizeof(struct conn_opts_struct))
 #define STATS_CPU_SIZE (sizeof(struct stats_cpu_struct))
 
@@ -79,7 +85,8 @@ enum context
     clients,
     servers,
     databases,
-    stats
+    stats,
+    config
 };
 
 /*
@@ -87,6 +94,10 @@ enum context
  * Functions prototypes 
  ***************************************************************************
  */
+
+/* routines */
+struct colAttrs *
+    calculate_width(struct colAttrs *columns, int row_count, int col_count, PGresult *res);
 
 void
     create_initial_conn(int argc, char *argv[],
@@ -164,6 +175,8 @@ char * cmd_readline(WINDOW * window, int pos, bool * with_esc);
 
 void
     write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[]);
+void
+    show_config(PGconn * conn);
 
 /* Pgbouncer action function */
 void do_reload(WINDOW * window, PGconn *conn);
