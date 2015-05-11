@@ -2,7 +2,9 @@
  * pgbconsole: top-like console for Pgbouncer - PostgerSQL connection pooler
  * (C) 2015 by Alexey Lesovsky (lesovsky <at> gmail.com)
  */
- 
+
+#define _GNU_SOURCE
+
 /* sizes and limits */
 #define BUFFERSIZE 4096
 #define MAX_CONSOLE 8
@@ -40,6 +42,8 @@ struct conn_opts_struct
     char dbname[BUFFERSIZE];
     char password[BUFFERSIZE];
     char conninfo[BUFFERSIZE];
+    bool log_opened;
+    FILE *log;
 };
 
 /* struct which used for cpu statistic */
@@ -181,6 +185,12 @@ void
     show_config(PGconn * conn);
 float
     change_refresh(WINDOW * window, float interval);
+void
+    log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts);
+void
+    print_log(WINDOW * window, struct conn_opts_struct * conn_opts);
+bool
+    check_pgb_listen_addr(struct conn_opts_struct * conn_opts);
 
 /* Pgbouncer action function */
 void do_reload(WINDOW * window, PGconn *conn);

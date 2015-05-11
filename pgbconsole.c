@@ -7,15 +7,20 @@
  ***************************************************************************
  */
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <getopt.h>
+#include <ifaddrs.h>
+#include <linux/if_link.h>
 #include <limits.h>
 #include <ncurses.h>
+#include <netdb.h>
 #include <pwd.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -70,6 +75,7 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
         strcpy(conn_opts[i]->dbname, "");
         strcpy(conn_opts[i]->password, "");
         strcpy(conn_opts[i]->conninfo, "");
+        conn_opts[i]->log_opened = false;
     }
 }
 
@@ -566,6 +572,7 @@ PGresult * do_query(PGconn *conn, enum context query_context)
     res = PQexec(conn, query);
     if ( PQresultStatus(res) != PG_TUP_OK ) {
         puts("We didn't get any data.");
+        PQclear(res);
         return NULL;
     }
     else
@@ -1460,13 +1467,9 @@ void show_config(PGconn * conn)
     FILE *fpout;
     PGresult * res;
     struct colAttrs *columns;
+    enum context query_context = config;
 
-    res = PQexec(conn, "show config");
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        fprintf(stderr, "show config failed: %s", PQerrorMessage(conn));
-        PQclear(res);
-        return;
-    }
+    res = do_query(conn, query_context);
     row_count = PQntuples(res);
     col_count = PQnfields(res);
 
@@ -1489,6 +1492,126 @@ void show_config(PGconn * conn)
     PQclear(res);
     pclose(fpout);
     free(columns);
+}
+
+/*
+ ******************************************************** routine function ** 
+ * Get pgbouncer listen_address and check is that local address or not.
+ *
+ **************************************************************************** 
+ */
+bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
+{
+    struct ifaddrs *ifaddr, *ifa;
+    int family, s;
+    char host[NI_MAXHOST];
+
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        exit(EXIT_FAILURE);
+    }
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL)
+            continue;
+
+        family = ifa->ifa_addr->sa_family;
+
+        /* Check AF_INET* interface addresses */
+        if (family == AF_INET || family == AF_INET6) {
+            s = getnameinfo(ifa->ifa_addr,
+                            (family == AF_INET) ? sizeof(struct sockaddr_in) :
+                                                  sizeof(struct sockaddr_in6),
+                            host, NI_MAXHOST,
+                            NULL, 0, NI_NUMERICHOST);
+            if (s != 0) {
+                printf("getnameinfo() failed: %s\n", gai_strerror(s));
+                exit(EXIT_FAILURE);
+            }
+            if (!strcmp(host, conn_opts->hostaddr)) {
+//                printf("Address %s found on %s interface\n", t_addr, ifa->ifa_name);
+                return true;
+                break;
+            }
+        } 
+    }
+
+    freeifaddrs(ifaddr);
+    return false;
+}
+
+/*
+ ****************************************************** key press function ** 
+ * Log processing, open log in separate window or close if already opened.
+ *
+ * IN:
+ * @window              Window where cmd status will be printed.
+ * @w_log               Pointer to window where log will be shown.
+ * @conn_opts           Array of connections options.
+ **************************************************************************** 
+ */
+void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts)
+{
+    if (!conn_opts->log_opened) {
+        if (check_pgb_listen_addr(conn_opts)) {
+            *w_log = (WINDOW *) malloc(sizeof(WINDOW));
+            *w_log = newwin(0, 0, ((LINES * 2) / 3), 0);
+            wrefresh(window);
+            conn_opts->log_opened = true;
+            conn_opts->log = fopen("/var/log/pgbouncer.log", "r");
+            wprintw(window, "Open current pgbouncer log: /var/log/pgbouncer.log");
+            return;
+        } else {
+            wprintw(window, "Do nothing. Current pgbouncer not local.");
+            return;
+        }
+    } else {
+        delwin(*w_log);
+        fclose(conn_opts->log);
+        conn_opts->log_opened = false;
+        return;
+    }
+}
+
+/*
+ ******************************************************** routine function **
+ * Print log
+ *
+ ****************************************************************************
+ */
+void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
+{
+    int x, y;
+    int lines = 1;
+    int pos = 2;
+    int ch2;
+    long length, offset;
+    char buffer[1024];
+    
+    getbegyx(window, y, x);
+    fseek(conn_opts->log, 0, SEEK_END);
+    length = ftell(conn_opts->log);
+
+    do {
+        offset = length - pos;
+        if (offset > 0) {
+            fseek(conn_opts->log, offset, SEEK_SET);
+            ch2 = fgetc(conn_opts->log);
+            pos++;
+            if (ch2 == '\n')
+                lines++;
+            } else 
+                break;
+    } while (lines != (LINES - y));
+
+    fseek(conn_opts->log, (offset + 1), SEEK_SET);
+    wclear(window);
+                
+    wmove(window, 1, 0);
+    while (fgets(buffer, 1024, conn_opts->log) != NULL) {
+        wprintw(window, "%s", buffer);
+        wrefresh(window);
+    }
+    wresize(window, y, x);
 }
 
 /*
@@ -1552,7 +1675,7 @@ int main (int argc, char *argv[])
     static int console_no = 1;
     static int console_index = 0;
     int ch;
-    WINDOW  *w_summary, *w_cmdline, *w_answer;
+    WINDOW  *w_summary, *w_cmdline, *w_answer, *w_log;
     struct stats_cpu_struct *st_cpu[2];
     float interval = 1000000;
     
@@ -1606,7 +1729,7 @@ int main (int argc, char *argv[])
                     write_pgbrc(w_cmdline, conn_opts);
                     break;
                 case 'L':
-                    wprintw(w_cmdline, "Open current pgbouncer log");
+                    log_process(w_cmdline, &w_log, conn_opts[console_index]);
                     break;
                 case 'M':
                     do_reload(w_cmdline, conns[console_index]);
@@ -1678,6 +1801,11 @@ int main (int argc, char *argv[])
             print_data(w_answer, query_context, res);
             wrefresh(w_cmdline);
             wclear(w_cmdline);
+
+            if (conn_opts[console_index]->log_opened) {
+                print_log(w_log, conn_opts[console_index]);
+            }
+
             usleep(interval);
         }
     }
