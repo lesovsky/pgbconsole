@@ -1528,7 +1528,6 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
                 exit(EXIT_FAILURE);
             }
             if (!strcmp(host, conn_opts->hostaddr)) {
-//                printf("Address %s found on %s interface\n", t_addr, ifa->ifa_name);
                 return true;
                 break;
             }
@@ -1540,6 +1539,37 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
 }
 
 /*
+ ******************************************************** routine function ** 
+ * Get log file location from pgbouncer config (show config).
+ *
+ * IN:
+ * @conn           Current pgboucner connection.
+ *
+ * RETURNS:
+ * Returns char pointer with log file location.
+ **************************************************************************** 
+ */
+char * get_logfile(PGconn * conn)
+{
+    PGresult * res;
+    int row_count, row;
+    enum context query_context = config;
+    char * logfile;
+    logfile = (char *) malloc(sizeof(char) * PATH_MAX);
+
+    res = do_query(conn, query_context);
+    row_count = PQntuples(res);
+
+    for (row = 0; row < row_count; row++) {
+        if (!strcmp(PQgetvalue(res, row, 0), PGB_CONFIG_LOGFILE)) {
+            strcpy(logfile, PQgetvalue(res, row, 1));
+            return logfile;
+        }
+    }
+    return "";
+}
+
+/*
  ****************************************************** key press function ** 
  * Log processing, open log in separate window or close if already opened.
  *
@@ -1547,18 +1577,29 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
  * @window              Window where cmd status will be printed.
  * @w_log               Pointer to window where log will be shown.
  * @conn_opts           Array of connections options.
+ * @conn                Current pgbouncer connection.
  **************************************************************************** 
  */
-void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts)
+void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts, PGconn * conn)
 {
+    char * logfile;
+    logfile = (char *) malloc(sizeof(char) * PATH_MAX);
     if (!conn_opts->log_opened) {
         if (check_pgb_listen_addr(conn_opts)) {
             *w_log = (WINDOW *) malloc(sizeof(WINDOW));
             *w_log = newwin(0, 0, ((LINES * 2) / 3), 0);
             wrefresh(window);
+            strcpy(logfile, get_logfile(conn));
+            if (strlen(logfile) == 0) {
+                wprintw(window, "Do nothing. Log file config option not found.");
+                return;
+            }
+            if ((conn_opts->log = fopen(logfile, "r")) == NULL ) {
+                wprintw(window, "Do nothing. Failed to open %s", logfile);
+                return;
+            }
             conn_opts->log_opened = true;
-            conn_opts->log = fopen("/var/log/pgbouncer.log", "r");
-            wprintw(window, "Open current pgbouncer log: /var/log/pgbouncer.log");
+            wprintw(window, "Open current pgbouncer log: %s", logfile);
             return;
         } else {
             wprintw(window, "Do nothing. Current pgbouncer not local.");
@@ -1574,8 +1615,11 @@ void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * con
 
 /*
  ******************************************************** routine function **
- * Print log
+ * Print pgbouncer log.
  *
+ * IN:
+ * @window          Window where log will be printed.
+ * @conn_opts       Current connection options.
  ****************************************************************************
  */
 void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
@@ -1661,6 +1705,7 @@ float change_refresh(WINDOW * window, float interval)
      nodelay(window, TRUE);
      keypad(window, FALSE);
 }
+
 /*
  **************************************************************************** 
  * Main entry for pgbconsole program.
@@ -1729,7 +1774,7 @@ int main (int argc, char *argv[])
                     write_pgbrc(w_cmdline, conn_opts);
                     break;
                 case 'L':
-                    log_process(w_cmdline, &w_log, conn_opts[console_index]);
+                    log_process(w_cmdline, &w_log, conn_opts[console_index], conns[console_index]);
                     break;
                 case 'M':
                     do_reload(w_cmdline, conns[console_index]);

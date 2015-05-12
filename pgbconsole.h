@@ -24,6 +24,8 @@
 #define PGBRC_READ_ERR  1
 #define PAGER           "${PAGER:-less}"
 
+/* misc */
+#define PGB_CONFIG_LOGFILE "logfile"
 #define HZ              hz
 unsigned int hz;
 
@@ -186,7 +188,9 @@ void
 float
     change_refresh(WINDOW * window, float interval);
 void
-    log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts);
+    log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts, PGconn * conn);
+char *
+    get_logfile(PGconn * conn);
 void
     print_log(WINDOW * window, struct conn_opts_struct * conn_opts);
 bool
