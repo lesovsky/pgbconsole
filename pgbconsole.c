@@ -1546,7 +1546,7 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
  * @conn           Current pgboucner connection.
  *
  * RETURNS:
- * Returns char pointer with log file location.
+ * Returns char pointer with log file location or empty string.
  **************************************************************************** 
  */
 char * get_logfile(PGconn * conn)
@@ -1627,9 +1627,9 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
     int x, y;
     int lines = 1;
     int pos = 2;
-    int ch2;
-    long length, offset;
-    char buffer[1024];
+    int ch;
+    unsigned long long int length, offset;
+    char buffer[BUFFERSIZE];
     
     getbegyx(window, y, x);
     fseek(conn_opts->log, 0, SEEK_END);
@@ -1639,9 +1639,9 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
         offset = length - pos;
         if (offset > 0) {
             fseek(conn_opts->log, offset, SEEK_SET);
-            ch2 = fgetc(conn_opts->log);
+            ch = fgetc(conn_opts->log);
             pos++;
-            if (ch2 == '\n')
+            if (ch == '\n')
                 lines++;
             } else 
                 break;
