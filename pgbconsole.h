@@ -23,9 +23,11 @@
 #define PGBRC_READ_OK   0
 #define PGBRC_READ_ERR  1
 #define PAGER           "${PAGER:-less}"
+#define DEFAULT_EDITOR  "vim"
 
 /* misc */
-#define PGB_CONFIG_LOGFILE "logfile"
+#define PGB_CONFIG_LOGFILE  "logfile"
+#define PGB_CONFIG_CONFFILE "conffile"
 #define HZ              hz
 unsigned int hz;
 
@@ -185,12 +187,14 @@ void
     write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[]);
 void
     show_config(PGconn * conn);
+void
+    edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn);
 float
     change_refresh(WINDOW * window, float interval);
 void
     log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts, PGconn * conn);
 char *
-    get_logfile(PGconn * conn);
+    get_conf_value(PGconn * conn, char * config_option_name);
 void
     print_log(WINDOW * window, struct conn_opts_struct * conn_opts);
 bool

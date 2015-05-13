@@ -1543,27 +1543,28 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
  * Get log file location from pgbouncer config (show config).
  *
  * IN:
- * @conn           Current pgboucner connection.
+ * @conn                    Current pgboucner connection.
+ * @config_option_name      Option name.
  *
  * RETURNS:
- * Returns char pointer with log file location or empty string.
+ * Returns char pointer with config option value or empty string.
  **************************************************************************** 
  */
-char * get_logfile(PGconn * conn)
+char * get_conf_value(PGconn * conn, char * config_option_name)
 {
     PGresult * res;
     int row_count, row;
     enum context query_context = config;
-    char * logfile;
-    logfile = (char *) malloc(sizeof(char) * PATH_MAX);
+    char * config_option_value;
+    config_option_value = (char *) malloc(sizeof(char) * 128);
 
     res = do_query(conn, query_context);
     row_count = PQntuples(res);
 
     for (row = 0; row < row_count; row++) {
-        if (!strcmp(PQgetvalue(res, row, 0), PGB_CONFIG_LOGFILE)) {
-            strcpy(logfile, PQgetvalue(res, row, 1));
-            return logfile;
+        if (!strcmp(PQgetvalue(res, row, 0), config_option_name)) {
+            strcpy(config_option_value, PQgetvalue(res, row, 1));
+            return config_option_value;
         }
     }
     return "";
@@ -1589,7 +1590,7 @@ void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * con
             *w_log = (WINDOW *) malloc(sizeof(WINDOW));
             *w_log = newwin(0, 0, ((LINES * 2) / 3), 0);
             wrefresh(window);
-            strcpy(logfile, get_logfile(conn));
+            strcpy(logfile, get_conf_value(conn, PGB_CONFIG_LOGFILE));
             if (strlen(logfile) == 0) {
                 wprintw(window, "Do nothing. Log file config option not found.");
                 return;
@@ -1656,6 +1657,59 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
         wrefresh(window);
     }
     wresize(window, y, x);
+}
+
+/*
+ ****************************************************** key press function ** 
+ * Edit the current configuration settings.
+ *
+ * IN:
+ * @window      Window where errors will be displayed.
+ * @conn_opts   Connection options.
+ * @conn        Current pgbouncer connection.
+ *
+ * RETURNS:
+ * Open configuration file in $EDITOR.
+ **************************************************************************** 
+ */
+void edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn)
+{
+    char * conffile;
+    char * editor;
+    pid_t pid;
+    
+    editor = (char *) malloc(sizeof(char) * 128);
+    conffile = (char *) malloc(sizeof(char) * 128);
+
+    editor = getenv("EDITOR");
+    if (editor == NULL)
+        editor = DEFAULT_EDITOR;
+
+    if (check_pgb_listen_addr(conn_opts)) {
+        pid = fork();
+        if (pid == 0) {
+            conffile = get_conf_value(conn, PGB_CONFIG_CONFFILE);
+            if (strlen(conffile) != 0) {
+                execlp(editor, editor, conffile, NULL);
+                exit(EXIT_FAILURE);
+            } else {
+                wprintw(window, "Do nothing. Config file option not found.");
+                return;
+            }
+        } else if (pid < 0) {
+            wprintw(window, "Can't open %s: fork failed.", conffile);
+            return;
+        } else {
+            if (waitpid(pid, NULL, 0) != pid) {
+                wprintw(window, "Unknown error: waitpid failed.");
+                return;
+            }
+        }
+        return;
+    } else {
+        wprintw(window, "Do nothing. Edit config not supported for remote pgbouncers.");
+        return;
+    }
 }
 
 /*
@@ -1816,6 +1870,9 @@ int main (int argc, char *argv[])
                     break;
                 case 'C':
                     show_config(conns[console_index]);
+                    break;
+                case 'E':
+                    edit_config(w_cmdline, conn_opts[console_index], conns[console_index]);
                     break;
                 case 'I':
                     interval = change_refresh(w_cmdline, interval);
