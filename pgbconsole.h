@@ -3,6 +3,11 @@
  * (C) 2015 by Alexey Lesovsky (lesovsky <at> gmail.com)
  */
 
+#define PROGRAM_NAME        "pgbconsole"
+#define PROGRAM_VERSION     0.1
+#define PROGRAM_RELEASE     "rc"
+#define PROGRAM_AUTHORS_CONTACTS    "<lesovsky@gmail.com>"
+
 #define _GNU_SOURCE
 
 /* sizes and limits */
@@ -199,6 +204,8 @@ void
     print_log(WINDOW * window, struct conn_opts_struct * conn_opts);
 bool
     check_pgb_listen_addr(struct conn_opts_struct * conn_opts);
+void
+    print_usage(void);
 
 /* Pgbouncer action function */
 void do_reload(WINDOW * window, PGconn *conn);

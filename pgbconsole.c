@@ -119,13 +119,14 @@ void create_initial_conn(int argc, char *argv[],
         if ((strcmp(argv[1], "-?") == 0) 
                 || (argc == 2 && (strcmp(argv[1], "--help") == 0)))
         {
-            printf("print help here\n");
+//            printf("print help here\n");
+            print_usage();
             exit(EXIT_SUCCESS);
         }
         if (strcmp(argv[1], "--version") == 0 
                 || strcmp(argv[1], "-V") == 0)
         {
-            printf("show version here\n");
+            printf("  %s, version %.1f (%s)\n", PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
             exit(EXIT_SUCCESS);
         }
     }
@@ -199,6 +200,29 @@ void create_initial_conn(int argc, char *argv[],
         strcpy(conn_opts[0]->dbname, conn_opts[0]->user);
 
     conn_opts[0]->conn_used = true;
+}
+
+/*
+ ******************************************************* on-start function **
+ * Print usage.
+ ****************************************************************************
+ */
+void print_usage(void)
+{
+    printf("%s is the top-like interactive console for Pgbouncer.\n\n", PROGRAM_NAME);
+    printf("Usage:\n \
+  %s [OPTION]... [DBNAME [USERNAME]]\n\n", PROGRAM_NAME);
+    printf("General options:\n \
+  -?, --help                show this help, then exit.\n \
+  -V, --version             print version, then exit.\n\n");
+    printf("Options:\n \
+  -h, --host=HOSTNAME       database server host or socket directory (default: \"127.0.0.1\")\n \
+  -p, --port=PORT           database server port (default: \"6432\")\n \
+  -U, --username=USERNAME   database user name (default: \"current logged user\")\n \
+  -d, --dbname=DBNAME       database name (default: \"pgbouncer\")\n \
+  -w, --no-password         never prompt for password\n \
+  -W, --password            force password prompt (should happen automatically)\n\n");
+    printf("Report bugs to %s.\n", PROGRAM_AUTHORS_CONTACTS);
 }
 
 /*
