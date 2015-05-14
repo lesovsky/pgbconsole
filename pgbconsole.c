@@ -403,6 +403,7 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
                 if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
                     wprintw(window, "Unable to connect to the pgbouncer.");
                     clear_conn_opts(conn_opts, i);
+                    PQfinish(conns[i]);
                 } else {
                     wprintw(window, "Successfully connected.");
                     console_index = conn_opts[i]->terminal;
@@ -1418,10 +1419,12 @@ void do_shutdown(WINDOW * window, PGconn * conn)
         if (PQresultStatus(res) != PG_CMD_OK)
             wprintw(window, "Pgbouncer shutdown was successful with: %s",
                     PQresultErrorMessage(res));
+        PQclear(res);
     } else if ((strlen(confirm) == 0 || strcmp(confirm, "YES")) && *with_esc == false ) {
             wprintw(window, "Cancel shutdown. Not confirmed.");
     }
 
+    free(with_esc);
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -1580,13 +1583,13 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
                 exit(EXIT_FAILURE);
             }
             if (!strcmp(host, conn_opts->hostaddr)) {
+                freeifaddrs(ifaddr);
                 return true;
                 break;
             }
         } 
     }
 
-    freeifaddrs(ifaddr);
     return false;
 }
 
@@ -1602,13 +1605,11 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
  * Returns char pointer with config option value or empty string.
  **************************************************************************** 
  */
-char * get_conf_value(PGconn * conn, char * config_option_name)
+void get_conf_value(PGconn * conn, char * config_option_name, char * config_option_value)
 {
     PGresult * res;
     int row_count, row;
     enum context query_context = config;
-    char * config_option_value;
-    config_option_value = (char *) malloc(sizeof(char) * 128);
 
     res = do_query(conn, query_context);
     row_count = PQntuples(res);
@@ -1616,10 +1617,9 @@ char * get_conf_value(PGconn * conn, char * config_option_name)
     for (row = 0; row < row_count; row++) {
         if (!strcmp(PQgetvalue(res, row, 0), config_option_name)) {
             strcpy(config_option_value, PQgetvalue(res, row, 1));
-            return config_option_value;
         }
     }
-    return "";
+    PQclear(res);
 }
 
 /*
@@ -1636,23 +1636,26 @@ char * get_conf_value(PGconn * conn, char * config_option_name)
 void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts, PGconn * conn)
 {
     char * logfile;
-    logfile = (char *) malloc(sizeof(char) * PATH_MAX);
     if (!conn_opts->log_opened) {
+        logfile = (char *) malloc(sizeof(char) * PATH_MAX);
         if (check_pgb_listen_addr(conn_opts)) {
-            *w_log = (WINDOW *) malloc(sizeof(WINDOW));
             *w_log = newwin(0, 0, ((LINES * 2) / 3), 0);
             wrefresh(window);
-            strcpy(logfile, get_conf_value(conn, PGB_CONFIG_LOGFILE));
+            get_conf_value(conn, PGB_CONFIG_LOGFILE, logfile);
+            
             if (strlen(logfile) == 0) {
                 wprintw(window, "Do nothing. Log file config option not found.");
+                free(logfile);
                 return;
             }
             if ((conn_opts->log = fopen(logfile, "r")) == NULL ) {
                 wprintw(window, "Do nothing. Failed to open %s", logfile);
+                free(logfile);
                 return;
             }
             conn_opts->log_opened = true;
             wprintw(window, "Open current pgbouncer log: %s", logfile);
+            free(logfile);
             return;
         } else {
             wprintw(window, "Do nothing. Current pgbouncer not local.");
@@ -1726,21 +1729,16 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
  */
 void edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn)
 {
-    char * conffile;
-    char * editor;
+    char * conffile = (char *) malloc(sizeof(char) * 128);
+    char * editor = (char *) malloc(sizeof(char) * 128);
     pid_t pid;
-    
-    editor = (char *) malloc(sizeof(char) * 128);
-    conffile = (char *) malloc(sizeof(char) * 128);
-
-    editor = getenv("EDITOR");
-    if (editor == NULL)
-        editor = DEFAULT_EDITOR;
 
     if (check_pgb_listen_addr(conn_opts)) {
+        if ((editor = getenv("EDITOR")) == NULL)
+            editor = DEFAULT_EDITOR;
         pid = fork();
         if (pid == 0) {
-            conffile = get_conf_value(conn, PGB_CONFIG_CONFFILE);
+            get_conf_value(conn, PGB_CONFIG_CONFFILE, conffile);
             if (strlen(conffile) != 0) {
                 execlp(editor, editor, conffile, NULL);
                 exit(EXIT_FAILURE);
@@ -1748,6 +1746,7 @@ void edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * 
                 wprintw(window, "Do nothing. Config file option not found.");
                 return;
             }
+            free(editor);
         } else if (pid < 0) {
             wprintw(window, "Can't open %s: fork failed.", conffile);
             return;
@@ -1755,13 +1754,13 @@ void edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * 
             if (waitpid(pid, NULL, 0) != pid) {
                 wprintw(window, "Unknown error: waitpid failed.");
                 return;
-            }
+            }          
         }
-        return;
     } else {
         wprintw(window, "Do nothing. Edit config not supported for remote pgbouncers.");
-        return;
     }
+    free(conffile);
+    return;
 }
 
 /*
@@ -1798,15 +1797,20 @@ float change_refresh(WINDOW * window, float interval)
             interval = atof(value);
             if (interval < 0) {
                 wprintw(window, "Should be positive value.");
+                free(with_esc);
                 return interval_save;
             } else {
+                free(with_esc);
                 return interval * 1000000;
             }
         }
-     } else if (strlen(value) == 0 && *with_esc == false ) {
-         return interval_save;
-     } else
-         return interval_save;
+    } else if (strlen(value) == 0 && *with_esc == false ) {
+        free(with_esc);
+        return interval_save;
+    } else {
+        free(with_esc);
+        return interval_save;
+    }
 
      noecho();
      cbreak();

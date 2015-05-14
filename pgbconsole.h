@@ -199,8 +199,8 @@ float
     change_refresh(WINDOW * window, float interval);
 void
     log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts, PGconn * conn);
-char *
-    get_conf_value(PGconn * conn, char * config_option_name);
+void
+    get_conf_value(PGconn * conn, char * config_option_name, char * config_option_value);
 void
     print_log(WINDOW * window, struct conn_opts_struct * conn_opts);
 bool
