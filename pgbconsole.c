@@ -550,7 +550,6 @@ void reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, P
     if (PQstatus(conn) == CONNECTION_BAD) {
         wclear(window);
         PQreset(conn);
-        conn = PQconnectdb(conn_opts->conninfo);
         wprintw(window,
                 "The connection to the server was lost. Attempting reconnect.");
         wrefresh(window);
@@ -690,16 +689,14 @@ char * password_prompt(const char *prompt, int maxlen, bool echo)
  * Return current time.
  **************************************************************************** 
  */
-char * print_time(void)
+void get_time(char * strtime)
 {
     time_t rawtime;
     struct tm *timeinfo;
-    char *strtime = (char *) malloc(sizeof(char) * 20);
     
     time(&rawtime);
     timeinfo = localtime(&rawtime);
     strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
-    return strtime;
 }
 
 
@@ -713,7 +710,10 @@ char * print_time(void)
  */
 void print_title(WINDOW * window, char * progname)
 {
-    wprintw(window, "%s: %s, ", progname, print_time());
+    char *strtime = (char *) malloc(sizeof(char) * 20);
+    get_time(strtime);
+    wprintw(window, "%s: %s, ", progname, strtime);
+    free(strtime);
 }
 /*
  **************************************************************************** 
@@ -1061,18 +1061,22 @@ void print_pgbouncer_summary(WINDOW * window, PGconn *conn)
     query_context = pools;
     res = do_query(conn, query_context);
     pl_count = PQntuples(res);
+    PQclear(res);
 
     query_context = databases;
     res = do_query(conn, query_context);
     db_count = PQntuples(res);
+    PQclear(res);
 
     query_context = clients;
     res = do_query(conn, query_context);
     cl_count = PQntuples(res);
+    PQclear(res);
 
     query_context = servers;
     res = do_query(conn, query_context);
     sv_count = PQntuples(res);
+    PQclear(res);
 
     wprintw(window,
             " pgbouncer: pools: %-5i databases: %-5i clients: %-5i servers: %-5i\n",

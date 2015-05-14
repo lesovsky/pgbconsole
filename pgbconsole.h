@@ -148,8 +148,8 @@ void
     clear_conn_opts(struct conn_opts_struct * conn_opt[], int i);
 void
     print_data(WINDOW * window, enum context query_context, PGresult *res);
-char * 
-    print_time(void);
+void
+    get_time(char * strtime);
 void
     print_title(WINDOW * window, char * progname);
 
