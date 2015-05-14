@@ -126,8 +126,8 @@ void
     prepare_conninfo(struct conn_opts_struct *conn_opts[]);
 char * 
     password_prompt(const char *prompt, int maxlen, bool echo);
-int
-    do_query(PGconn *conn, enum context query_context, PGresult * res);
+PGresult *
+    do_query(PGconn *conn, enum context query_context);
 void
     open_connections(struct conn_opts_struct *conn_opts[], PGconn * conns[]);
 int
