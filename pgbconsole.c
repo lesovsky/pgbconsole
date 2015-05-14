@@ -62,11 +62,11 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
     int i;
     for (i = 0; i < MAX_CONSOLE; i++) {
         if ((conn_opts[i] = (struct conn_opts_struct *) 
-                    malloc(CONN_OPTS_SIZE * 2)) == NULL) {
+                    malloc(CONN_OPTS_SIZE)) == NULL) {
             perror("malloc");
             exit(EXIT_FAILURE);
         }
-        memset(conn_opts[i], 0, CONN_OPTS_SIZE * 2);
+        memset(conn_opts[i], 0, CONN_OPTS_SIZE);
         conn_opts[i]->terminal = i;
         conn_opts[i]->conn_used = false;
         strcpy(conn_opts[i]->hostaddr, "");
@@ -119,7 +119,6 @@ void create_initial_conn(int argc, char *argv[],
         if ((strcmp(argv[1], "-?") == 0) 
                 || (argc == 2 && (strcmp(argv[1], "--help") == 0)))
         {
-//            printf("print help here\n");
             print_usage();
             exit(EXIT_SUCCESS);
         }
@@ -402,8 +401,10 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
 
                 conns[i] = PQconnectdb(conn_opts[i]->conninfo);
                 if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
-                    wprintw(window, "Unable to connect to the pgbouncer");
+                    wprintw(window, "Unable to connect to the pgbouncer.");
+                    clear_conn_opts(conn_opts, i);
                 } else {
+                    wprintw(window, "Successfully connected.");
                     console_index = conn_opts[i]->terminal;
                 }
                 break;
@@ -416,6 +417,8 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
             wprintw(window, "No free consoles.");
         }
     }
+
+    free(with_esc);
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -440,6 +443,7 @@ void clear_conn_opts(struct conn_opts_struct * conn_opts[], int i)
     strcpy(conn_opts[i]->user, "");
     strcpy(conn_opts[i]->dbname, "");
     strcpy(conn_opts[i]->password, "");
+    strcpy(conn_opts[i]->conninfo, "");
     conn_opts[i]->conn_used = false;
 }
 
