@@ -368,8 +368,8 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
 {
     int i;
     char params[128];
-    bool * with_esc;
-    with_esc = (bool *) malloc(sizeof(bool));
+    bool * with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -381,7 +381,9 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
             wprintw(window, "Enter new connection parameters, format \"host port username dbname\": ");
             wrefresh(window);
 
-            strcpy(params, cmd_readline(window, 69, with_esc));
+            cmd_readline(window, 69, with_esc, str);
+            strcpy(params, str);
+            free(str);
             if (strlen(params) != 0 && *with_esc == false) {
                 sscanf(params, "%s %s %s %s",
                     &conn_opts[i]->hostaddr,    &conn_opts[i]->port,
@@ -1137,12 +1139,10 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
  * Pointer to the input string.
  **************************************************************************** 
  */
-char * cmd_readline(WINDOW *window, int pos, bool * with_esc)
+void cmd_readline(WINDOW *window, int pos, bool * with_esc, char * str)
 {
     int ch;
     int i = 0;
-    char * str;
-    str = (char *) malloc(sizeof(char) * 128);
 
     while ((ch = wgetch(window)) != ERR ) {
         if (ch == 27) {
@@ -1151,12 +1151,12 @@ char * cmd_readline(WINDOW *window, int pos, bool * with_esc)
             nodelay(window, TRUE);
             *with_esc = true;              // Finish with ESC.
             strcpy(str, "");
-            return str;
+            return;
         } else if (ch == 10) {
             str[i] = '\0';
             nodelay(window, TRUE);
             *with_esc = false;              // Normal finish with Newline.
-            return str;
+            return;
         } else if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127) {
             if (i > 0) {
                 i--;
@@ -1184,10 +1184,13 @@ char * cmd_readline(WINDOW *window, int pos, bool * with_esc)
  */
 void do_reload(WINDOW * window, PGconn * conn)
 {
-    if (PQresultStatus(PQexec(conn, "RELOAD")) != PG_CMD_OK)
+    PGresult * res;
+    res = PQexec(conn, "RELOAD");
+    if (PQresultStatus(res) != PG_CMD_OK)
         wprintw(window, "Reload current pgbouncer: failed.");
     else 
         wprintw(window, "Reload current pgbouncer: success.");
+    PQclear(res);
 }
 
 /*
@@ -1209,6 +1212,7 @@ void do_suspend(WINDOW * window, PGconn * conn)
         wprintw(window, "Suspend current pgbouncer: %s", PQresultErrorMessage(res));
     else 
         wprintw(window, "Suspend current pgbouncer: success.");
+    PQclear(res);
 }
 
 /*
@@ -1227,8 +1231,8 @@ void do_pause(WINDOW * window, PGconn * conn)
     PGresult *res;
     char query[128] = "PAUSE";
     char dbname[128];
-    bool * with_esc;
-    with_esc = (bool *) malloc(sizeof(bool));
+    bool * with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1238,7 +1242,9 @@ void do_pause(WINDOW * window, PGconn * conn)
     wprintw(window, "Database to pause [default database = all] ");
     wrefresh(window);
 
-    strcpy(dbname, cmd_readline(window, 43, with_esc));
+    cmd_readline(window, 43, with_esc, str);
+    strcpy(dbname, str);
+    free(str);
     if (strlen(dbname) != 0 && *with_esc == false) {
         strcat(query, " ");
         strcat(query, dbname);
@@ -1248,6 +1254,7 @@ void do_pause(WINDOW * window, PGconn * conn)
                     dbname, PQresultErrorMessage(res));
         else 
                 wprintw(window, "Pause pool %s: success.", dbname);
+        PQclear(res);
     } else if (strlen(dbname) == 0 && *with_esc == false ) {
         res = PQexec(conn, query);
         if (PQresultStatus(res) != PG_CMD_OK)
@@ -1255,8 +1262,10 @@ void do_pause(WINDOW * window, PGconn * conn)
                     PQresultErrorMessage(res));
         else 
                 wprintw(window, "All pools paused");
+        PQclear(res);
     }
-                                                                   
+
+    free(with_esc);    
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -1278,8 +1287,8 @@ void do_kill(WINDOW * window, PGconn * conn)
     PGresult *res;
     char query[128] = "KILL";
     char dbname[128];
-    bool * with_esc;
-    with_esc = (bool *) malloc(sizeof(bool));
+    bool * with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1289,7 +1298,9 @@ void do_kill(WINDOW * window, PGconn * conn)
     wprintw(window, "Database to kill [must not be empty]: ");
     wrefresh(window);
 
-    strcpy(dbname, cmd_readline(window, 38, with_esc));
+    cmd_readline(window, 38, with_esc, str);
+    strcpy(dbname, str);
+    free(str);
     if (strlen(dbname) != 0 && *with_esc == false) {
        if (strlen(dbname) != 0) {
             strcat(query, " ");
@@ -1302,11 +1313,13 @@ void do_kill(WINDOW * window, PGconn * conn)
                         dbname, PQresultErrorMessage(res));
             else 
                 wprintw(window, "Kill database %s: success.", dbname);
+            PQclear(res);
         }
     } else if (strlen(dbname) == 0 && *with_esc == false ) {
         wprintw(window, "A database is required.");
     }
 
+    free(with_esc);
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -1327,8 +1340,8 @@ void do_resume(WINDOW * window, PGconn * conn)
     PGresult *res;
     char query[128] = "RESUME";
     char dbname[128];
-    bool * with_esc;
-    with_esc = (bool *) malloc(sizeof(bool));
+    bool * with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1338,7 +1351,9 @@ void do_resume(WINDOW * window, PGconn * conn)
     wprintw(window, "Database to resume [default database = all] ");
     wrefresh(window);
 
-    strcpy(dbname, cmd_readline(window, 44, with_esc));
+    cmd_readline(window, 44, with_esc, str);
+    strcpy(dbname, str);
+    free(str);
     if (strlen(dbname) != 0 && *with_esc == false) {
         strcat(query, " ");
         strcat(query, dbname);
@@ -1348,6 +1363,7 @@ void do_resume(WINDOW * window, PGconn * conn)
                     dbname, PQresultErrorMessage(res));
         else 
                 wprintw(window, "Resume pool %s: success.", dbname);
+        PQclear(res);
     } else if (strlen(dbname) == 0 && *with_esc == false ) {
         res = PQexec(conn, query);
         if (PQresultStatus(res) != PG_CMD_OK)
@@ -1355,8 +1371,10 @@ void do_resume(WINDOW * window, PGconn * conn)
                     PQresultErrorMessage(res));
         else 
                 wprintw(window, "All pools resumed");
+        PQclear(res);
     }
 
+    free(with_esc);
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -1377,8 +1395,8 @@ void do_shutdown(WINDOW * window, PGconn * conn)
     PGresult *res;
     char query[128] = "SHUTDOWN";
     char confirm[3];
-    bool * with_esc;
-    with_esc = (bool *) malloc(sizeof(bool));
+    bool * with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1388,7 +1406,9 @@ void do_shutdown(WINDOW * window, PGconn * conn)
     wprintw(window, "Shutdown pgbouncer. Press YES to confirm. ");
     wrefresh(window);
 
-    strcpy(confirm, cmd_readline(window, 43, with_esc));
+    cmd_readline(window, 43, with_esc, str);
+    strcpy(confirm, str);
+    free(str);
     if (strlen(confirm) != 0 && !strcmp(confirm, "YES") && *with_esc == false) {
         res = PQexec(conn, query);
         if (PQresultStatus(res) != PG_CMD_OK)
@@ -1755,8 +1775,8 @@ float change_refresh(WINDOW * window, float interval)
 {
     float interval_save = interval;
     char value[8];
-    bool * with_esc;
-    with_esc = (bool *) malloc(sizeof(bool));
+    bool * with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1766,7 +1786,9 @@ float change_refresh(WINDOW * window, float interval)
     wprintw(window, "Change refresh interval from %.1f to ", interval / 1000000);
     wrefresh(window);
 
-    strcpy(value, cmd_readline(window, 36, with_esc));
+    cmd_readline(window, 36, with_esc, str);
+    strcpy(value, str);
+    free(str);
     if (strlen(value) != 0 && *with_esc == false) {
         if (strlen(value) != 0) {
             interval = atof(value);
@@ -1795,10 +1817,10 @@ float change_refresh(WINDOW * window, float interval)
  */
 int main (int argc, char *argv[])
 {
-    PGresult    *res;
-    struct conn_opts_struct *conn_opts[MAX_CONSOLE];
-    PGconn * conns[8];
-    enum context query_context;
+    PGresult    * res;
+    struct conn_opts_struct * conn_opts[MAX_CONSOLE];
+    PGconn      * conns[8];
+    enum context query_context = pools;
     static int console_no = 1;
     static int console_index = 0;
     int ch;

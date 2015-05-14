@@ -186,7 +186,8 @@ void
 int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
     int ch, int console_index, int console_no);
 
-char * cmd_readline(WINDOW * window, int pos, bool * with_esc);
+void
+    cmd_readline(WINDOW * window, int pos, bool * with_esc, char * str);
 
 void
     write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[]);
