@@ -62,11 +62,11 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
     int i;
     for (i = 0; i < MAX_CONSOLE; i++) {
         if ((conn_opts[i] = (struct conn_opts_struct *) 
-                    malloc(CONN_OPTS_SIZE * 2)) == NULL) {
+                    malloc(CONN_OPTS_SIZE)) == NULL) {
             perror("malloc");
             exit(EXIT_FAILURE);
         }
-        memset(conn_opts[i], 0, CONN_OPTS_SIZE * 2);
+        memset(conn_opts[i], 0, CONN_OPTS_SIZE);
         conn_opts[i]->terminal = i;
         conn_opts[i]->conn_used = false;
         strcpy(conn_opts[i]->hostaddr, "");
@@ -119,7 +119,6 @@ void create_initial_conn(int argc, char *argv[],
         if ((strcmp(argv[1], "-?") == 0) 
                 || (argc == 2 && (strcmp(argv[1], "--help") == 0)))
         {
-//            printf("print help here\n");
             print_usage();
             exit(EXIT_SUCCESS);
         }
@@ -264,7 +263,7 @@ int create_pgbrc_conn(int argc, char *argv[],
 
     /* read connections settings from .pgbrc */
     if ((fp = fopen(pgbrcpath, "r")) != NULL) {
-        while (fgets(strbuf, 4096, fp) != 0) {
+        while (fgets(strbuf, BUFFERSIZE, fp) != 0) {
             sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:\n]",
                 conn_opts[i]->hostaddr, conn_opts[i]->port,
                 conn_opts[i]->dbname,   conn_opts[i]->user,
@@ -370,7 +369,8 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
     char params[128];
     bool * with_esc;
     with_esc = (bool *) malloc(sizeof(bool));
-
+    char * str = (char *) malloc(sizeof(char) * 128);
+    
     echo();
     cbreak();
     nodelay(window, FALSE);
@@ -380,8 +380,9 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
         if (conn_opts[i]->conn_used == false) {
             wprintw(window, "Enter new connection parameters, format \"host port username dbname\": ");
             wrefresh(window);
-
-            strcpy(params, cmd_readline(window, 69, with_esc));
+            cmd_readline(window, 69, with_esc, str);
+            strcpy(params, str);
+            free(str);
             if (strlen(params) != 0 && *with_esc == false) {
                 sscanf(params, "%s %s %s %s",
                     &conn_opts[i]->hostaddr,    &conn_opts[i]->port,
@@ -395,6 +396,7 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
                 strcat(conn_opts[i]->conninfo, conn_opts[i]->user);
                 strcat(conn_opts[i]->conninfo, " dbname=");
                 strcat(conn_opts[i]->conninfo, conn_opts[i]->dbname);
+                free(with_esc);
 
                 // check here password need.
 
@@ -407,6 +409,7 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
                 break;
             } else if (strlen(params) == 0 && *with_esc == false) {
                 wprintw(window, "Nothing to do.");
+                free(with_esc);
                 break;
             } else 
                 break;
@@ -554,7 +557,6 @@ void reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, P
         wprintw(window,
                 "The connection to the server was lost. Attempting reconnect.");
         wrefresh(window);
-        sleep(1);
     } 
 }
 /*
@@ -569,9 +571,9 @@ void reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, P
  * Answer from pgbouncer.
  **************************************************************************** 
  */
-PGresult * do_query(PGconn *conn, enum context query_context)
+PGresult * do_query(PGconn * conn, enum context query_context)
 {
-    PGresult    *res;
+    PGresult * res;
     char query[20];
     switch (query_context) {
         case pools: default:
@@ -597,9 +599,8 @@ PGresult * do_query(PGconn *conn, enum context query_context)
     if ( PQresultStatus(res) != PG_TUP_OK ) {
         puts("We didn't get any data.");
         PQclear(res);
-        return NULL;
-    }
-    else
+        return;
+    } else 
         return res;
 }
 
@@ -683,23 +684,21 @@ char * password_prompt(const char *prompt, int maxlen, bool echo)
 }
 
 /*
- **************************************************************************** 
+ ************************************************* summary window function ** 
  * Print current time.
  *
- * RETURNS:
- * Return current time.
+ * IN:
+ * @strtime     Pointer where current time is stored.
  **************************************************************************** 
  */
-char * print_time(void)
+void get_time(char * strtime)
 {
     time_t rawtime;
     struct tm *timeinfo;
-    char *strtime = (char *) malloc(sizeof(char) * 20);
     
     time(&rawtime);
     timeinfo = localtime(&rawtime);
     strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
-    return strtime;
 }
 
 
@@ -713,7 +712,10 @@ char * print_time(void)
  */
 void print_title(WINDOW * window, char * progname)
 {
-    wprintw(window, "%s: %s, ", progname, print_time());
+    char *strtime = (char *) malloc(sizeof(char) * 20);
+    get_time(strtime);
+    wprintw(window, "%s: %s, ", progname, strtime);
+    free(strtime);
 }
 /*
  **************************************************************************** 
@@ -728,11 +730,11 @@ void print_title(WINDOW * window, char * progname)
  */
 float get_loadavg(const int m)
 {
-    if ( m != 1 && m != 5 && m != 15 )
-        fprintf(stderr, "invalid value for load average\n");
-
     float avg1, avg5, avg15;
     FILE *loadavg_fd;
+
+    if ( m != 1 && m != 5 && m != 15 )
+        fprintf(stderr, "invalid value for load average\n");
 
     if ((loadavg_fd = fopen(LOADAVG_FILE, "r")) == NULL) {
         fprintf(stderr, "can't open %s\n", LOADAVG_FILE);
@@ -1061,31 +1063,26 @@ void print_pgbouncer_summary(WINDOW * window, PGconn *conn)
     query_context = pools;
     res = do_query(conn, query_context);
     pl_count = PQntuples(res);
+    PQclear(res);
 
     query_context = databases;
     res = do_query(conn, query_context);
     db_count = PQntuples(res);
+    PQclear(res);
 
     query_context = clients;
     res = do_query(conn, query_context);
     cl_count = PQntuples(res);
+    PQclear(res);
 
     query_context = servers;
     res = do_query(conn, query_context);
     sv_count = PQntuples(res);
+    PQclear(res);
 
     wprintw(window,
             " pgbouncer: pools: %-5i databases: %-5i clients: %-5i servers: %-5i\n",
             pl_count, db_count, cl_count, sv_count);
-}
-/*
- **************************************************************************** 
- * 
- **************************************************************************** 
- */
-void key_processing(int ch)
-{
-
 }
 
 /*
@@ -1133,12 +1130,10 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
  * Pointer to the input string.
  **************************************************************************** 
  */
-char * cmd_readline(WINDOW *window, int pos, bool * with_esc)
+void cmd_readline(WINDOW *window, int pos, bool * with_esc, char * str)
 {
     int ch;
     int i = 0;
-    char * str;
-    str = (char *) malloc(sizeof(char) * 128);
 
     while ((ch = wgetch(window)) != ERR ) {
         if (ch == 27) {
@@ -1147,12 +1142,12 @@ char * cmd_readline(WINDOW *window, int pos, bool * with_esc)
             nodelay(window, TRUE);
             *with_esc = true;              // Finish with ESC.
             strcpy(str, "");
-            return str;
+            return;
         } else if (ch == 10) {
             str[i] = '\0';
             nodelay(window, TRUE);
             *with_esc = false;              // Normal finish with Newline.
-            return str;
+            return;
         } else if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127) {
             if (i > 0) {
                 i--;
@@ -1180,10 +1175,13 @@ char * cmd_readline(WINDOW *window, int pos, bool * with_esc)
  */
 void do_reload(WINDOW * window, PGconn * conn)
 {
-    if (PQresultStatus(PQexec(conn, "RELOAD")) != PG_CMD_OK)
+    PGresult * res;
+    res = PQexec(conn, "RELOAD");
+    if (PQresultStatus(res) != PG_CMD_OK)
         wprintw(window, "Reload current pgbouncer: failed.");
     else 
         wprintw(window, "Reload current pgbouncer: success.");
+    PQclear(res);
 }
 
 /*
@@ -1205,6 +1203,7 @@ void do_suspend(WINDOW * window, PGconn * conn)
         wprintw(window, "Suspend current pgbouncer: %s", PQresultErrorMessage(res));
     else 
         wprintw(window, "Suspend current pgbouncer: success.");
+    PQclear(res);
 }
 
 /*
@@ -1225,6 +1224,7 @@ void do_pause(WINDOW * window, PGconn * conn)
     char dbname[128];
     bool * with_esc;
     with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1234,7 +1234,9 @@ void do_pause(WINDOW * window, PGconn * conn)
     wprintw(window, "Database to pause [default database = all] ");
     wrefresh(window);
 
-    strcpy(dbname, cmd_readline(window, 43, with_esc));
+    cmd_readline(window, 43, with_esc, str);
+    strcpy(dbname, str);
+    free(str);
     if (strlen(dbname) != 0 && *with_esc == false) {
         strcat(query, " ");
         strcat(query, dbname);
@@ -1252,7 +1254,9 @@ void do_pause(WINDOW * window, PGconn * conn)
         else 
                 wprintw(window, "All pools paused");
     }
-                                                                   
+
+    PQclear(res);
+    free(with_esc);    
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -1276,6 +1280,7 @@ void do_kill(WINDOW * window, PGconn * conn)
     char dbname[128];
     bool * with_esc;
     with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1285,7 +1290,9 @@ void do_kill(WINDOW * window, PGconn * conn)
     wprintw(window, "Database to kill [must not be empty]: ");
     wrefresh(window);
 
-    strcpy(dbname, cmd_readline(window, 38, with_esc));
+    cmd_readline(window, 38, with_esc, str);
+    strcpy(dbname, str);
+    free(str);
     if (strlen(dbname) != 0 && *with_esc == false) {
        if (strlen(dbname) != 0) {
             strcat(query, " ");
@@ -1303,6 +1310,8 @@ void do_kill(WINDOW * window, PGconn * conn)
         wprintw(window, "A database is required.");
     }
 
+    PQclear(res); 
+    free(with_esc);
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -1325,6 +1334,7 @@ void do_resume(WINDOW * window, PGconn * conn)
     char dbname[128];
     bool * with_esc;
     with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1334,7 +1344,9 @@ void do_resume(WINDOW * window, PGconn * conn)
     wprintw(window, "Database to resume [default database = all] ");
     wrefresh(window);
 
-    strcpy(dbname, cmd_readline(window, 44, with_esc));
+    cmd_readline(window, 44, with_esc, str);
+    strcpy(dbname, str);
+    free(str);
     if (strlen(dbname) != 0 && *with_esc == false) {
         strcat(query, " ");
         strcat(query, dbname);
@@ -1353,6 +1365,8 @@ void do_resume(WINDOW * window, PGconn * conn)
                 wprintw(window, "All pools resumed");
     }
 
+    PQclear(res);
+    free(with_esc);
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -1375,6 +1389,7 @@ void do_shutdown(WINDOW * window, PGconn * conn)
     char confirm[3];
     bool * with_esc;
     with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1384,7 +1399,9 @@ void do_shutdown(WINDOW * window, PGconn * conn)
     wprintw(window, "Shutdown pgbouncer. Press YES to confirm. ");
     wrefresh(window);
 
-    strcpy(confirm, cmd_readline(window, 43, with_esc));
+    cmd_readline(window, 43, with_esc, str);
+    strcpy(confirm, str);
+    free(str);
     if (strlen(confirm) != 0 && !strcmp(confirm, "YES") && *with_esc == false) {
         res = PQexec(conn, query);
         if (PQresultStatus(res) != PG_CMD_OK)
@@ -1487,7 +1504,6 @@ struct colAttrs * calculate_width(struct colAttrs *columns, int row_count, int c
 void show_config(PGconn * conn)
 {
     int  row_count, col_count, row, col, i;
-    char line[BUFFERSIZE];
     FILE *fpout;
     PGresult * res;
     struct colAttrs *columns;
@@ -1552,6 +1568,7 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
                 exit(EXIT_FAILURE);
             }
             if (!strcmp(host, conn_opts->hostaddr)) {
+                freeifaddrs(ifaddr);
                 return true;
                 break;
             }
@@ -1574,13 +1591,11 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
  * Returns char pointer with config option value or empty string.
  **************************************************************************** 
  */
-char * get_conf_value(PGconn * conn, char * config_option_name)
+void get_conf_value(PGconn * conn, char * config_option_name, char * config_option_value)
 {
     PGresult * res;
     int row_count, row;
     enum context query_context = config;
-    char * config_option_value;
-    config_option_value = (char *) malloc(sizeof(char) * 128);
 
     res = do_query(conn, query_context);
     row_count = PQntuples(res);
@@ -1588,10 +1603,9 @@ char * get_conf_value(PGconn * conn, char * config_option_name)
     for (row = 0; row < row_count; row++) {
         if (!strcmp(PQgetvalue(res, row, 0), config_option_name)) {
             strcpy(config_option_value, PQgetvalue(res, row, 1));
-            return config_option_value;
         }
     }
-    return "";
+    PQclear(res);
 }
 
 /*
@@ -1608,23 +1622,25 @@ char * get_conf_value(PGconn * conn, char * config_option_name)
 void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts, PGconn * conn)
 {
     char * logfile;
-    logfile = (char *) malloc(sizeof(char) * PATH_MAX);
     if (!conn_opts->log_opened) {
+        logfile = (char *) malloc(sizeof(char) * PATH_MAX);
         if (check_pgb_listen_addr(conn_opts)) {
-            *w_log = (WINDOW *) malloc(sizeof(WINDOW));
             *w_log = newwin(0, 0, ((LINES * 2) / 3), 0);
             wrefresh(window);
-            strcpy(logfile, get_conf_value(conn, PGB_CONFIG_LOGFILE));
+            get_conf_value(conn, PGB_CONFIG_LOGFILE, logfile);
             if (strlen(logfile) == 0) {
                 wprintw(window, "Do nothing. Log file config option not found.");
+                free(logfile);
                 return;
             }
             if ((conn_opts->log = fopen(logfile, "r")) == NULL ) {
                 wprintw(window, "Do nothing. Failed to open %s", logfile);
+                free(logfile);
                 return;
             }
             conn_opts->log_opened = true;
             wprintw(window, "Open current pgbouncer log: %s", logfile);
+            free(logfile);
             return;
         } else {
             wprintw(window, "Do nothing. Current pgbouncer not local.");
@@ -1676,7 +1692,7 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
     wclear(window);
                 
     wmove(window, 1, 0);
-    while (fgets(buffer, 1024, conn_opts->log) != NULL) {
+    while (fgets(buffer, BUFFERSIZE, conn_opts->log) != NULL) {
         wprintw(window, "%s", buffer);
         wrefresh(window);
     }
@@ -1712,7 +1728,7 @@ void edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * 
     if (check_pgb_listen_addr(conn_opts)) {
         pid = fork();
         if (pid == 0) {
-            conffile = get_conf_value(conn, PGB_CONFIG_CONFFILE);
+            get_conf_value(conn, PGB_CONFIG_CONFFILE, conffile);
             if (strlen(conffile) != 0) {
                 execlp(editor, editor, conffile, NULL);
                 exit(EXIT_FAILURE);
@@ -1753,6 +1769,7 @@ float change_refresh(WINDOW * window, float interval)
     char value[8];
     bool * with_esc;
     with_esc = (bool *) malloc(sizeof(bool));
+    char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -1762,9 +1779,12 @@ float change_refresh(WINDOW * window, float interval)
     wprintw(window, "Change refresh interval from %.1f to ", interval / 1000000);
     wrefresh(window);
 
-    strcpy(value, cmd_readline(window, 36, with_esc));
+    cmd_readline(window, 36, with_esc, str);
+    strcpy(value, str);
+    free(str);
     if (strlen(value) != 0 && *with_esc == false) {
         if (strlen(value) != 0) {
+            free(with_esc);
             interval = atof(value);
             if (interval < 0) {
                 wprintw(window, "Should be positive value.");
@@ -1774,8 +1794,10 @@ float change_refresh(WINDOW * window, float interval)
             }
         }
      } else if (strlen(value) == 0 && *with_esc == false ) {
+         free(with_esc);
          return interval_save;
      } else
+         free(with_esc);
          return interval_save;
 
      noecho();
@@ -1791,7 +1813,7 @@ float change_refresh(WINDOW * window, float interval)
  */
 int main (int argc, char *argv[])
 {
-    PGresult    *res;
+    PGresult * res;
     struct conn_opts_struct *conn_opts[MAX_CONSOLE];
     PGconn * conns[8];
     enum context query_context;
@@ -1931,7 +1953,7 @@ int main (int argc, char *argv[])
             if (conn_opts[console_index]->log_opened) {
                 print_log(w_log, conn_opts[console_index]);
             }
-
+            
             usleep(interval);
         }
     }
