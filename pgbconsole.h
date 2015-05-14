@@ -45,12 +45,12 @@ struct conn_opts_struct
 {
     int terminal;
     bool conn_used;
-    char hostaddr[NI_MAXHOST];
-    char port[128];
-    char user[128];
-    char dbname[128];
-    char password[64];
-    char conninfo[512];
+    char hostaddr[BUFFERSIZE];
+    char port[BUFFERSIZE];
+    char user[BUFFERSIZE];
+    char dbname[BUFFERSIZE];
+    char password[BUFFERSIZE];
+    char conninfo[BUFFERSIZE];
     bool log_opened;
     FILE *log;
 };
@@ -126,7 +126,7 @@ void
     prepare_conninfo(struct conn_opts_struct *conn_opts[]);
 char * 
     password_prompt(const char *prompt, int maxlen, bool echo);
-PGresult *
+PGresult * 
     do_query(PGconn *conn, enum context query_context);
 void
     open_connections(struct conn_opts_struct *conn_opts[], PGconn * conns[]);
@@ -148,8 +148,8 @@ void
     clear_conn_opts(struct conn_opts_struct * conn_opt[], int i);
 void
     print_data(WINDOW * window, enum context query_context, PGresult *res);
-void
-    get_time(char * strtime);
+char * 
+    print_time(void);
 void
     print_title(WINDOW * window, char * progname);
 
@@ -186,7 +186,7 @@ void
 int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
     int ch, int console_index, int console_no);
 
-void cmd_readline(WINDOW * window, int pos, bool * with_esc, char * str);
+char * cmd_readline(WINDOW * window, int pos, bool * with_esc);
 
 void
     write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[]);
@@ -198,8 +198,8 @@ float
     change_refresh(WINDOW * window, float interval);
 void
     log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts, PGconn * conn);
-void
-    get_conf_value(PGconn * conn, char * config_option_name, char * config_option_value);
+char *
+    get_conf_value(PGconn * conn, char * config_option_name);
 void
     print_log(WINDOW * window, struct conn_opts_struct * conn_opts);
 bool
