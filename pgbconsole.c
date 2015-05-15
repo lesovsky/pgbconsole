@@ -1617,8 +1617,12 @@ void get_conf_value(PGconn * conn, char * config_option_name, char * config_opti
     for (row = 0; row < row_count; row++) {
         if (!strcmp(PQgetvalue(res, row, 0), config_option_name)) {
             strcpy(config_option_value, PQgetvalue(res, row, 1));
+            PQclear(res);
+            return;
         }
     }
+
+    strcpy(config_option_value, "");
     PQclear(res);
 }
 
@@ -1730,31 +1734,28 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
 void edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn)
 {
     char * conffile = (char *) malloc(sizeof(char) * 128);
-    char * editor = (char *) malloc(sizeof(char) * 128);
     pid_t pid;
 
     if (check_pgb_listen_addr(conn_opts)) {
-        if ((editor = getenv("EDITOR")) == NULL)
-            editor = DEFAULT_EDITOR;
-        pid = fork();
-        if (pid == 0) {
-            get_conf_value(conn, PGB_CONFIG_CONFFILE, conffile);
-            if (strlen(conffile) != 0) {
+        get_conf_value(conn, PGB_CONFIG_CONFFILE, conffile);
+        if (strlen(conffile) != 0) {
+            pid = fork();                   /* start child */
+            if (pid == 0) {
+                char * editor = (char *) malloc(sizeof(char) * 128);
+                if ((editor = getenv("EDITOR")) == NULL)
+                    editor = DEFAULT_EDITOR;
                 execlp(editor, editor, conffile, NULL);
+                free(editor);
                 exit(EXIT_FAILURE);
-            } else {
-                wprintw(window, "Do nothing. Config file option not found.");
+            } else if (pid < 0) {
+                wprintw(window, "Can't open %s: fork failed.", conffile);
                 return;
-            }
-            free(editor);
-        } else if (pid < 0) {
-            wprintw(window, "Can't open %s: fork failed.", conffile);
-            return;
-        } else {
-            if (waitpid(pid, NULL, 0) != pid) {
+            } else if (waitpid(pid, NULL, 0) != pid) {
                 wprintw(window, "Unknown error: waitpid failed.");
                 return;
-            }          
+            }
+        } else {
+            wprintw(window, "Do nothing. Config file option not found.");
         }
     } else {
         wprintw(window, "Do nothing. Edit config not supported for remote pgbouncers.");
