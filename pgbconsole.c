@@ -31,12 +31,12 @@
 #include "pgbconsole.h"
 
 /*
- **************************************************************************** 
+ ******************************************************** routine function **
  * Trap keys in program main mode
  *
  * RETURNS:
  * 1 if key is pressed or 0 if not.
- **************************************************************************** 
+ ****************************************************************************
  */
 int key_is_pressed(void)
 {
@@ -50,18 +50,18 @@ int key_is_pressed(void)
 }
     
 /*
- **************************************************************************** 
+ *********************************************************** init function **
  * Allocate memory for connections options struct array
  *
  * OUT:
  * @conn_opts   Initialized array of connection options
- **************************************************************************** 
+ ****************************************************************************
  */
 void init_conn_opts(struct conn_opts_struct *conn_opts[])
 {
     int i;
     for (i = 0; i < MAX_CONSOLE; i++) {
-        if ((conn_opts[i] = (struct conn_opts_struct *) 
+        if ((conn_opts[i] = (struct conn_opts_struct *)
                     malloc(CONN_OPTS_SIZE)) == NULL) {
             perror("malloc");
             exit(EXIT_FAILURE);
@@ -80,7 +80,7 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
 }
 
 /*
- **************************************************************************** 
+ ******************************************************** startup function **
  * Take input parameters and add them into connections options.
  *
  * IN:
@@ -89,7 +89,7 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
  *
  * OUT:
  * @conn_opts[]     Array where connections options will be saved.
- **************************************************************************** 
+ ****************************************************************************
  */
 void create_initial_conn(int argc, char *argv[],
         struct conn_opts_struct * conn_opts[])
@@ -98,7 +98,7 @@ void create_initial_conn(int argc, char *argv[],
 
     /* short options */
     const char * short_options = "h:p:U:d:wW?";
-    
+
     /* long options */
     const struct option long_options[] = {
         {"help", no_argument, NULL, '?'},
@@ -116,13 +116,13 @@ void create_initial_conn(int argc, char *argv[],
 
     if (argc > 1)
     {
-        if ((strcmp(argv[1], "-?") == 0) 
+        if ((strcmp(argv[1], "-?") == 0)
                 || (argc == 2 && (strcmp(argv[1], "--help") == 0)))
         {
             print_usage();
             exit(EXIT_SUCCESS);
         }
-        if (strcmp(argv[1], "--version") == 0 
+        if (strcmp(argv[1], "--version") == 0
                 || strcmp(argv[1], "-V") == 0)
         {
             printf("  %s, version %.1f (%s)\n", PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
@@ -130,12 +130,12 @@ void create_initial_conn(int argc, char *argv[],
         }
     }
 
-    while ( (param = getopt_long(argc, argv, 
+    while ( (param = getopt_long(argc, argv,
                     short_options, long_options, &option_index)) != -1 )
     {
         switch(param)
         {
-            case 'h': 
+            case 'h':
                 strcpy(conn_opts[0]->hostaddr, optarg);
                 break;
             case 'p':
@@ -154,7 +154,7 @@ void create_initial_conn(int argc, char *argv[],
                 prompt_password = TRI_YES;
                 break;
             case '?': default:
-                fprintf(stderr, 
+                fprintf(stderr,
                         "Try \"%s --help\" for more information.\n", argv[0]);
                 exit (EXIT_SUCCESS);
                 break;
@@ -163,7 +163,7 @@ void create_initial_conn(int argc, char *argv[],
 
     while (argc - optind >= 1)
     {
-        if ( (argc - optind > 1) 
+        if ( (argc - optind > 1)
                 && strlen(conn_opts[0]->user) == 0
                 && strlen(conn_opts[0]->dbname) == 0 )
             strcpy(conn_opts[0]->user, argv[optind]);
@@ -174,7 +174,7 @@ void create_initial_conn(int argc, char *argv[],
                     "%s: warning: extra command-line argument \"%s\" ignored\n",
                     argv[0], argv[optind]);
         optind++;
-    }    
+    }
 
     if ( strlen(conn_opts[0]->hostaddr) == 0 )
         strcpy(conn_opts[0]->hostaddr, DEFAULT_HOSTADDR);
@@ -202,7 +202,7 @@ void create_initial_conn(int argc, char *argv[],
 }
 
 /*
- ******************************************************* on-start function **
+ ******************************************************** startup function **
  * Print usage.
  ****************************************************************************
  */
@@ -225,7 +225,7 @@ void print_usage(void)
 }
 
 /*
- **************************************************************************** 
+ ******************************************************** startup function **
  * Read ~/.pgbrc file and fill up connections options array.
  *
  * IN:
@@ -238,7 +238,7 @@ void print_usage(void)
  *
  * RETURNS:
  * Success or failure.
- **************************************************************************** 
+ ****************************************************************************
  */
 int create_pgbrc_conn(int argc, char *argv[],
         struct conn_opts_struct * conn_opts[], const int pos)
@@ -282,9 +282,9 @@ int create_pgbrc_conn(int argc, char *argv[],
 }
 
 /*
- **************************************************************************** 
+ ****************************************************************************
  * Print connections from conn_opts (debug function, will be removed)
- **************************************************************************** 
+ ****************************************************************************
  */
 void print_conn(struct conn_opts_struct * conn_opts[])
 {
@@ -295,7 +295,7 @@ void print_conn(struct conn_opts_struct * conn_opts[])
 }
 
 /*
- **************************************************************************** 
+ ******************************************************** startup function **
  * Prepare conninfo string for PQconnectdb.
  *
  * IN:
@@ -303,7 +303,7 @@ void print_conn(struct conn_opts_struct * conn_opts[])
  *
  * OUT:
  * @conn_opts       Connections options array with conninfo.
- **************************************************************************** 
+ ****************************************************************************
  */
 void prepare_conninfo(struct conn_opts_struct * conn_opts[])
 {
@@ -324,7 +324,7 @@ void prepare_conninfo(struct conn_opts_struct * conn_opts[])
 }
 
 /*
- **************************************************************************** 
+ ******************************************************** startup function **
  * Open connections to pgbouncer using conninfo string from conn_opts.
  *
  * IN:
@@ -332,7 +332,7 @@ void prepare_conninfo(struct conn_opts_struct * conn_opts[])
  *
  * OUT:
  * @conns           Array of connections.
- **************************************************************************** 
+ ****************************************************************************
  */
 void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
 {
@@ -347,7 +347,7 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
 }
 
 /*
- **************************************************************************** 
+ ****************************************************** key press function **
  * Open new one connection.
  *
  * IN:
@@ -360,7 +360,7 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
  *
  * RETURNS:
  * Add connection into conns array and return new console index.
- **************************************************************************** 
+ ****************************************************************************
  */
 int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
         PGconn * conns[], int console_index)
@@ -429,7 +429,7 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
 }
 
 /*
- ********************************************************* routine function **
+ ******************************************************** routine function **
  * Clear single connection options.
  *
  * IN:
@@ -449,7 +449,7 @@ void clear_conn_opts(struct conn_opts_struct * conn_opts[], int i)
 }
 
 /*
- ********************************************************* routine function **
+ ******************************************************** routine function **
  * Shift consoles when current console closes.
  *
  * IN:
@@ -479,7 +479,7 @@ void shift_consoles(struct conn_opts_struct * conn_opts[], PGconn * conns[], int
 }
 
 /*
- ***************************************************** key press functions ** 
+ ***************************************************** key press functions **
  * Close current connection.
  *
  * IN:
@@ -491,9 +491,9 @@ void shift_consoles(struct conn_opts_struct * conn_opts[], PGconn * conns[], int
  * @conn_opts       Connections options array.
  *
  * RETURNS:
- * Close current connection (remove from conns array) and return prvious 
+ * Close current connection (remove from conns array) and return prvious
  * console index.
- **************************************************************************** 
+ ****************************************************************************
  */
 int close_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
         PGconn * conns[], int console_index)
@@ -526,12 +526,12 @@ int close_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
 }
 
 /*
- **************************************************************************** 
+ **************************************************** end program function **
  * Close connections to pgbouncers.
  *
  * IN:
  * @conns       Array of connections.
- **************************************************************************** 
+ ****************************************************************************
  */
 void close_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
 {
@@ -541,16 +541,15 @@ void close_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
             PQfinish(conns[i]);
 }
 
-
 /*
- **************************************************************************** 
+ ******************************************************** routine function **
  * Chech connection state, try reconnect if failed.
  *
  * IN:
  * @window          Window where status will be printed.
  * @conn_opts       Conn options associated with current console.
  * @conn            Connection associated with current console.
- **************************************************************************** 
+ ****************************************************************************
  */
 void reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn)
 {
@@ -563,8 +562,9 @@ void reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, P
         sleep(1);
     } 
 }
+
 /*
- **************************************************************************** 
+ ********************************************************* routine function **
  * Send query to pgbouncer.
  *
  * IN:
@@ -573,7 +573,7 @@ void reconnect_if_failed(WINDOW * window, struct conn_opts_struct * conn_opts, P
  *
  * RETURNS:
  * Answer from pgbouncer.
- **************************************************************************** 
+ ****************************************************************************
  */
 PGresult * do_query(PGconn *conn, enum context query_context)
 {
@@ -610,14 +610,14 @@ PGresult * do_query(PGconn *conn, enum context query_context)
 }
 
 /*
- **************************************************************************** 
+ ******************************************************** routine function **
  * Print answer from pgbouncer to the program main window.
  *
  * IN:
  * @window              Window which is used for print.
  * @query_context       Type of query.
  * @res                 Answer from pgbouncer.
- **************************************************************************** 
+ ****************************************************************************
  */
 void print_data(WINDOW * window, enum context query_context, PGresult *res)
 {
@@ -650,7 +650,7 @@ void print_data(WINDOW * window, enum context query_context, PGresult *res)
 }
 
 /*
- **************************************************************************** 
+ ******************************************************** startup function **
  * Password prompt.
  *
  * IN:
@@ -660,7 +660,7 @@ void print_data(WINDOW * window, enum context query_context, PGresult *res)
  *
  * RETURNS:
  * @password        Password.
- **************************************************************************** 
+ ****************************************************************************
  */
 char * password_prompt(const char *prompt, int maxlen, bool echo)
 {
@@ -689,31 +689,30 @@ char * password_prompt(const char *prompt, int maxlen, bool echo)
 }
 
 /*
- **************************************************************************** 
+ ************************************************* summary window function **
  * Print current time.
  *
  * RETURNS:
  * Return current time.
- **************************************************************************** 
+ ****************************************************************************
  */
 void get_time(char * strtime)
 {
     time_t rawtime;
     struct tm *timeinfo;
-    
+
     time(&rawtime);
     timeinfo = localtime(&rawtime);
     strftime(strtime, 20, "%Y-%m-%d %H:%M:%S", timeinfo);
 }
 
-
 /*
- **************************************************************************** 
+ ************************************************* summary window function **
  * Print title into summary window: program name and current time.
  *
  * IN:
  * @window          Window where title will be printed.
- **************************************************************************** 
+ ****************************************************************************
  */
 void print_title(WINDOW * window, char * progname)
 {
@@ -723,7 +722,7 @@ void print_title(WINDOW * window, char * progname)
     free(strtime);
 }
 /*
- **************************************************************************** 
+ ************************************************* summary window function **
  * Read /proc/loadavg and return load average value.
  *
  * IN:
@@ -731,7 +730,7 @@ void print_title(WINDOW * window, char * progname)
  *
  * RETURNS:
  * Load average for 1, 5 or 15 minutes.
- **************************************************************************** 
+ ****************************************************************************
  */
 float get_loadavg(const int m)
 {
@@ -758,12 +757,12 @@ float get_loadavg(const int m)
 
 
 /*
- **************************************************************************** 
+ ************************************************* summary window function **
  * Print load average into summary window.
  *
  * IN:
  * @window      Window where load average will be printed.
- **************************************************************************** 
+ ****************************************************************************
  */
 void print_loadavg(WINDOW * window)
 {
@@ -774,7 +773,7 @@ void print_loadavg(WINDOW * window)
 }
 
 /*
- **************************************************************************** 
+ ************************************************* summary window function **
  * Print current connection info.
  *
  * IN:
@@ -782,7 +781,7 @@ void print_loadavg(WINDOW * window)
  * @conn_opts       Struct with connections options.
  * @conn            Current connection.
  * @console_no      Current console number.
- **************************************************************************** 
+ ****************************************************************************
  */
 void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn *conn, int console_no)
 {
@@ -808,12 +807,12 @@ void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn
 }
 
 /*
- **************************************************************************** 
+ **************************************************** get cpu stat function **
  * Allocate memory for cpu statistics struct.
  *
  * OUT:
  * @st_cpu      Struct for cpu statistics.
- **************************************************************************** 
+ ****************************************************************************
  */
 void init_stats(struct stats_cpu_struct *st_cpu[])
 {
@@ -830,12 +829,12 @@ void init_stats(struct stats_cpu_struct *st_cpu[])
 }
 
 /*
- **************************************************************************** 
+ *************************************************** get cpu stat function **
  * Get system clock resolution.
  *
  * OUT:
  * @hz      Number of intervals per second.
- **************************************************************************** 
+ ****************************************************************************
  */
 void get_HZ(void)
 {
@@ -849,12 +848,12 @@ void get_HZ(void)
 }
 
 /*
- **************************************************************************** 
+ *************************************************** get cpu stat function **
  * Read machine uptime independently of the number of processors.
  *
  * OUT:
  * @uptime          Uptime value in jiffies.
- **************************************************************************** 
+ ****************************************************************************
  */
 void read_uptime(unsigned long long *uptime)
 {
@@ -877,19 +876,19 @@ void read_uptime(unsigned long long *uptime)
 }
 
 /*
- **************************************************************************** 
+ *************************************************** get cpu stat function **
  * Read cpu statistics from /proc/stat. Also calculate uptime if 
  * read_uptime() function return NULL.
  *
  * IN:
  * @st_cpu          Struct where stat will be saved.
  * @nbr             Total number of CPU (including cpu "all").
- * 
- * OUT:             
+ *
+ * OUT:
  * @st_cpu          Struct with statistics.
  * @uptime          Machine uptime multiplied by the number of processors.
  * @uptime0         Machine uptime. Filled only if previously set to zero.
- **************************************************************************** 
+ ****************************************************************************
  */
 void read_cpu_stat(struct stats_cpu_struct *st_cpu, int nbr,
                     unsigned long long *uptime, unsigned long long *uptime0)
@@ -953,7 +952,7 @@ void read_cpu_stat(struct stats_cpu_struct *st_cpu, int nbr,
 }
 
 /*
- **************************************************************************** 
+ *************************************************** get cpu stat function **
  * Compute time interval.
  *
  * IN:
@@ -962,7 +961,7 @@ void read_cpu_stat(struct stats_cpu_struct *st_cpu, int nbr,
  *
  * RETURNS:
  * Interval of time in jiffies.
- **************************************************************************** 
+ ****************************************************************************
  */
 unsigned long long get_interval(unsigned long long prev_uptime,
                                 unsigned long long curr_uptime)
@@ -980,10 +979,10 @@ unsigned long long get_interval(unsigned long long prev_uptime,
 }
 
 /*
- **************************************************************************** 
+ *************************************************** get cpu stat function **
  * Workaround for CPU counters read from /proc/stat: Dyn-tick kernels
  * have a race issue that can make those counters go backward.
- **************************************************************************** 
+ ****************************************************************************
  */
 double ll_sp_value(unsigned long long value1, unsigned long long value2,
         unsigned long long itv)
@@ -995,7 +994,7 @@ double ll_sp_value(unsigned long long value1, unsigned long long value2,
 }
 
 /*
- **************************************************************************** 
+ *************************************************** get cpu stat function **
  * Display cpu statistics in specified window.
  *
  * IN:
@@ -1003,7 +1002,7 @@ double ll_sp_value(unsigned long long value1, unsigned long long value2,
  * @st_cpu      Struct with cpu statistics.
  * @curr        Index in array for current sample statistics.
  * @itv         Interval of time.
- **************************************************************************** 
+ ****************************************************************************
  */
 void write_cpu_stat_raw(WINDOW * window, struct stats_cpu_struct *st_cpu[],
         int curr, unsigned long long itv)
@@ -1025,14 +1024,14 @@ void write_cpu_stat_raw(WINDOW * window, struct stats_cpu_struct *st_cpu[],
 }
 
 /*
- **************************************************************************** 
+ ************************************************* summary window function **
  * Composite function which read cpu stats and uptime then print out stats 
  * to specified window.
  *
  * IN:
  * @window      Window where spu statistics will be printed.
  * @st_cpu      Struct with cpu statistics.
- **************************************************************************** 
+ ****************************************************************************
  */
 void print_cpu_usage(WINDOW * window, struct stats_cpu_struct *st_cpu[])
 {
@@ -1051,13 +1050,13 @@ void print_cpu_usage(WINDOW * window, struct stats_cpu_struct *st_cpu[])
 }
 
 /*
- **************************************************************************** 
+ ************************************************* sumamry window function **
  * Print current pgbouncer summary info: total clients, servers, etc.
  *
  * IN:
  * @window          Window where info will be printed.
  * @conn            Current pgbouncer connection.
- **************************************************************************** 
+ ****************************************************************************
  */
 void print_pgbouncer_summary(WINDOW * window, PGconn *conn)
 {
@@ -1090,9 +1089,9 @@ void print_pgbouncer_summary(WINDOW * window, PGconn *conn)
             pl_count, db_count, cl_count, sv_count);
 }
 /*
- **************************************************************************** 
- * 
- **************************************************************************** 
+ ****************************************************************************
+ *
+ ****************************************************************************
  */
 void key_processing(int ch)
 {
@@ -1100,7 +1099,7 @@ void key_processing(int ch)
 }
 
 /*
- **************************************************************************** 
+ ****************************************************** key press function **
  * Switch console using specified number.
  *
  * IN:
@@ -1112,7 +1111,7 @@ void key_processing(int ch)
  *
  * RETURNS:
  * Index console on which performed switching.
- **************************************************************************** 
+ ****************************************************************************
  */
 int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
         int ch, int console_index, int console_no)
@@ -1130,7 +1129,7 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
 }
 
 /*
- ****************************************************************************
+ ***************************************************** cmd window function **
  * Read input from cmd window.
  *
  * IN:
@@ -1142,7 +1141,7 @@ int switch_conn(WINDOW * window, struct conn_opts_struct * conn_opts[],
  *
  * RETURNS:
  * Pointer to the input string.
- **************************************************************************** 
+ ****************************************************************************
  */
 void cmd_readline(WINDOW *window, int pos, bool * with_esc, char * str)
 {
@@ -1185,7 +1184,7 @@ void cmd_readline(WINDOW *window, int pos, bool * with_esc, char * str)
  * IN:
  * @window          Window where reload status will be printed.
  * @conn            Current pgbouncer connection.
- **************************************************************************** 
+ ****************************************************************************
  */
 void do_reload(WINDOW * window, PGconn * conn)
 {
@@ -1207,7 +1206,7 @@ void do_reload(WINDOW * window, PGconn * conn)
  * IN:
  * @window          Window where suspend status will be printed.
  * @conn            Current pgbouncer connection.
- **************************************************************************** 
+ ****************************************************************************
  */
 void do_suspend(WINDOW * window, PGconn * conn)
 {
@@ -1229,7 +1228,7 @@ void do_suspend(WINDOW * window, PGconn * conn)
  * IN:
  * @window          Window where pause status will be printed.
  * @conn            Current pgbouncer connection.
- **************************************************************************** 
+ ****************************************************************************
  */
 void do_pause(WINDOW * window, PGconn * conn)
 {
@@ -1257,7 +1256,7 @@ void do_pause(WINDOW * window, PGconn * conn)
         if (PQresultStatus(res) != PG_CMD_OK)
             wprintw(window, "Pause pool %s: %s",
                     dbname, PQresultErrorMessage(res));
-        else 
+        else
                 wprintw(window, "Pause pool %s: success.", dbname);
         PQclear(res);
     } else if (strlen(dbname) == 0 && *with_esc == false ) {
@@ -1265,12 +1264,12 @@ void do_pause(WINDOW * window, PGconn * conn)
         if (PQresultStatus(res) != PG_CMD_OK)
             wprintw(window, "Pause pool: %s",
                     PQresultErrorMessage(res));
-        else 
+        else
                 wprintw(window, "All pools paused");
         PQclear(res);
     }
 
-    free(with_esc);    
+    free(with_esc);
     noecho();
     cbreak();
     nodelay(window, TRUE);
@@ -1285,7 +1284,7 @@ void do_pause(WINDOW * window, PGconn * conn)
  * IN:
  * @window          Window where pause status will be printed.
  * @conn            Current pgbouncer connection.
- **************************************************************************** 
+ ****************************************************************************
  */
 void do_kill(WINDOW * window, PGconn * conn)
 {
@@ -1310,13 +1309,13 @@ void do_kill(WINDOW * window, PGconn * conn)
        if (strlen(dbname) != 0) {
             strcat(query, " ");
             strcat(query, dbname);
-        
+
             res = PQexec(conn, query);
-        
+
             if (PQresultStatus(res) != PG_CMD_OK)
                 wprintw(window, "Kill database %s: %s",
                         dbname, PQresultErrorMessage(res));
-            else 
+            else
                 wprintw(window, "Kill database %s: success.", dbname);
             PQclear(res);
         }
@@ -1338,7 +1337,7 @@ void do_kill(WINDOW * window, PGconn * conn)
  * IN:
  * @window          Window where pause status will be printed.
  * @conn            Current pgbouncer connection.
- **************************************************************************** 
+ ****************************************************************************
  */
 void do_resume(WINDOW * window, PGconn * conn)
 {
@@ -1366,7 +1365,7 @@ void do_resume(WINDOW * window, PGconn * conn)
         if (PQresultStatus(res) != PG_CMD_OK)
             wprintw(window, "Resume pool %s: %s",
                     dbname, PQresultErrorMessage(res));
-        else 
+        else
                 wprintw(window, "Resume pool %s: success.", dbname);
         PQclear(res);
     } else if (strlen(dbname) == 0 && *with_esc == false ) {
@@ -1374,7 +1373,7 @@ void do_resume(WINDOW * window, PGconn * conn)
         if (PQresultStatus(res) != PG_CMD_OK)
             wprintw(window, "Resume pool: %s",
                     PQresultErrorMessage(res));
-        else 
+        else
                 wprintw(window, "All pools resumed");
         PQclear(res);
     }
@@ -1393,7 +1392,7 @@ void do_resume(WINDOW * window, PGconn * conn)
  * IN:
  * @window          Window where pause status will be printed.
  * @conn            Current pgbouncer connection.
- **************************************************************************** 
+ ****************************************************************************
  */
 void do_shutdown(WINDOW * window, PGconn * conn)
 {
@@ -1438,7 +1437,7 @@ void do_shutdown(WINDOW * window, PGconn * conn)
  * IN:
  * @window          Window where result will be printed.
  * @conn_opts       Array of connection options.
- **************************************************************************** 
+ ****************************************************************************
  */
 void write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[])
 {
@@ -1451,7 +1450,7 @@ void write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[])
     strcpy(pgbrcpath, pw->pw_dir);
     strcat(pgbrcpath, "/");
     strcat(pgbrcpath, PGBRC_FILE);
-    
+
     if ((fp = fopen(pgbrcpath, "w")) != NULL ) {
         while (conn_opts[i]->conn_used) {
             fprintf(fp, "%s:%s:%s:%s:%s\n",
@@ -1505,7 +1504,7 @@ struct colAttrs * calculate_width(struct colAttrs *columns, int row_count, int c
 }
 
 /*
- ****************************************************** key press function ** 
+ ****************************************************** key press function **
  * Show the current configuration settings, one per row.
  *
  * IN:
@@ -1513,7 +1512,7 @@ struct colAttrs * calculate_width(struct colAttrs *columns, int row_count, int c
  *
  * RETURNS:
  * 'SHOW CONFIG' output redirected to pager (default less).
- **************************************************************************** 
+ ****************************************************************************
  */
 void show_config(PGconn * conn)
 {
@@ -1550,10 +1549,15 @@ void show_config(PGconn * conn)
 }
 
 /*
- ******************************************************** routine function ** 
+ ******************************************************** routine function **
  * Get pgbouncer listen_address and check is that local address or not.
  *
- **************************************************************************** 
+ * IN:
+ * @conn_opts       Connections options.
+ *
+ * RETURNS:
+ * Return true if listen_address is local and false if not.
+ ****************************************************************************
  */
 bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
 {
@@ -1587,14 +1591,14 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
                 return true;
                 break;
             }
-        } 
+        }
     }
 
     return false;
 }
 
 /*
- ******************************************************** routine function ** 
+ ******************************************************** routine function **
  * Get log file location from pgbouncer config (show config).
  *
  * IN:
@@ -1603,7 +1607,7 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
  *
  * RETURNS:
  * Returns char pointer with config option value or empty string.
- **************************************************************************** 
+ ****************************************************************************
  */
 void get_conf_value(PGconn * conn, char * config_option_name, char * config_option_value)
 {
@@ -1627,7 +1631,7 @@ void get_conf_value(PGconn * conn, char * config_option_name, char * config_opti
 }
 
 /*
- ****************************************************** key press function ** 
+ ****************************************************** key press function **
  * Log processing, open log in separate window or close if already opened.
  *
  * IN:
@@ -1635,7 +1639,7 @@ void get_conf_value(PGconn * conn, char * config_option_name, char * config_opti
  * @w_log               Pointer to window where log will be shown.
  * @conn_opts           Array of connections options.
  * @conn                Current pgbouncer connection.
- **************************************************************************** 
+ ****************************************************************************
  */
 void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts, PGconn * conn)
 {
@@ -1646,7 +1650,7 @@ void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * con
             *w_log = newwin(0, 0, ((LINES * 2) / 3), 0);
             wrefresh(window);
             get_conf_value(conn, PGB_CONFIG_LOGFILE, logfile);
-            
+
             if (strlen(logfile) == 0) {
                 wprintw(window, "Do nothing. Log file config option not found.");
                 free(logfile);
@@ -1690,7 +1694,7 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
     int ch;
     unsigned long long int length, offset;
     char buffer[BUFFERSIZE];
-    
+
     getbegyx(window, y, x);
     fseek(conn_opts->log, 0, SEEK_END);
     length = ftell(conn_opts->log);
@@ -1709,7 +1713,7 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
 
     fseek(conn_opts->log, (offset + 1), SEEK_SET);
     wclear(window);
-                
+
     wmove(window, 1, 0);
     while (fgets(buffer, 1024, conn_opts->log) != NULL) {
         wprintw(window, "%s", buffer);
@@ -1719,7 +1723,7 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
 }
 
 /*
- ****************************************************** key press function ** 
+ ****************************************************** key press function **
  * Edit the current configuration settings.
  *
  * IN:
@@ -1729,7 +1733,7 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
  *
  * RETURNS:
  * Open configuration file in $EDITOR.
- **************************************************************************** 
+ ****************************************************************************
  */
 void edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn)
 {
@@ -1765,7 +1769,7 @@ void edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * 
 }
 
 /*
- ****************************************************** key press function ** 
+ ****************************************************** key press function **
  * Change refresh interval.
  *
  * IN:
@@ -1773,7 +1777,7 @@ void edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * 
  * 
  * OUT:
  * @interval            Interval.
- **************************************************************************** 
+ ****************************************************************************
  */
 float change_refresh(WINDOW * window, float interval)
 {
@@ -1820,9 +1824,9 @@ float change_refresh(WINDOW * window, float interval)
 }
 
 /*
- ****************************************************** key press function ** 
+ ****************************************************** key press function **
  * Print on-program help.
- **************************************************************************** 
+ ****************************************************************************
  */
 void print_help_screen(void)
 {
@@ -1846,14 +1850,14 @@ void print_help_screen(void)
 }
 
 /*
- *********************************************************** init function ** 
+ *********************************************************** init function **
  * Init output colors.
  *
  * IN:
  * @ws_color            Summary window current color.
  * @wc_color            Cmdline window current color.
  * @wa_color            Pgbouncer answer window current color.
- **************************************************************************** 
+ ****************************************************************************
  */
 void init_colors(int * ws_color, int * wc_color, int * wa_color)
 {
@@ -1921,14 +1925,14 @@ void draw_color_help(WINDOW * w, int * ws_color, int * wc_color, int * wa_color,
 }
 
 /*
- ****************************************************** key press function ** 
+ ****************************************************** key press function **
  * Change output colors.
  *
  * IN:
  * @ws_color            Summary window current color.
  * @wc_color            Cmdline window current color.
  * @wa_color            Pgbouncer answer window current color.
- **************************************************************************** 
+ ****************************************************************************
  */
 void change_colors(int * ws_color, int * wc_color, int * wa_color)
 {
@@ -1970,7 +1974,7 @@ void change_colors(int * ws_color, int * wc_color, int * wa_color)
                 break;
         }
     } while (ch != '\n' && ch != 27);
-    
+
     /* if Esc entered, restore previous colors */
     if (ch == 27) {
         *ws_color = ws_save;
@@ -1986,9 +1990,9 @@ void change_colors(int * ws_color, int * wc_color, int * wa_color)
 }
 
 /*
- **************************************************************************** 
+ ****************************************************************************
  * Main entry for pgbconsole program.
- **************************************************************************** 
+ ****************************************************************************
  */
 int main (int argc, char *argv[])
 {
@@ -2002,11 +2006,11 @@ int main (int argc, char *argv[])
     WINDOW  *w_summary, *w_cmdline, *w_answer, *w_log;
     struct stats_cpu_struct *st_cpu[2];
     float interval = 1000000;
- 
+
     int * ws_color = (int *) malloc(sizeof(int));
     int * wc_color = (int *) malloc(sizeof(int));
     int * wa_color = (int *) malloc(sizeof(int));
-    
+
     /* Process args... */
     init_conn_opts(conn_opts);
     if ( argc > 1 ) {
