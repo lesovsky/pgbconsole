@@ -1820,6 +1820,172 @@ float change_refresh(WINDOW * window, float interval)
 }
 
 /*
+ ****************************************************** key press function ** 
+ * Print on-program help.
+ **************************************************************************** 
+ */
+void print_help_screen(void)
+{
+    FILE * fpout;
+    fpout = popen(PAGER, "w");
+
+    fprintf(fpout, "Help for interactive commands - %s version %.1f (%s)\n\n",
+            PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
+    fprintf(fpout, "   1..8       switch between consoles.\n \
+  a,c,d,p,s     show: 'a' stats, 'c' clients, 's' servers, 'd' databases, 'p' pools.\n \
+  K,M,P,R,S,Z   perform: 'K' kill, 'M' reload, 'P' pause, 'R' resume,\n \
+                         'S' suspend, 'Z' shutdown.\n \
+  N,Ctrl+D      'N' add new connection, Ctrl+D close current connection.\n\n \
+  W         write connections info into ~/.pgbrc.\n \
+  L         show log file (only for local pgbouncers).\n \
+  C,E       'C' show config, 'E' edit config (edit only for local pgbouncers).\n \
+  I,i       'I' set refresh interval, 'i' change color scheme.\n \
+  h         show help screen.\n \
+  q         quit.\n\n");
+    pclose(fpout);
+}
+
+/*
+ *********************************************************** init function ** 
+ * Init output colors.
+ *
+ * IN:
+ * @ws_color            Summary window current color.
+ * @wc_color            Cmdline window current color.
+ * @wa_color            Pgbouncer answer window current color.
+ **************************************************************************** 
+ */
+void init_colors(int * ws_color, int * wc_color, int * wa_color)
+{
+    start_color();
+    init_pair(0, COLOR_BLACK,   COLOR_BLACK);
+    init_pair(1, COLOR_RED,     COLOR_BLACK);
+    init_pair(2, COLOR_GREEN,   COLOR_BLACK);
+    init_pair(3, COLOR_YELLOW,  COLOR_BLACK);
+    init_pair(4, COLOR_BLUE,    COLOR_BLACK);
+    init_pair(5, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(6, COLOR_CYAN,    COLOR_BLACK);
+    init_pair(7, COLOR_WHITE,   COLOR_BLACK);
+    /* set defaults */
+    *ws_color = 7;
+    *wc_color = 7;
+    *wa_color = 7;
+}
+
+/************************************************** color-related function **
+ * Draw help of color-change screen.
+ *
+ * IN:
+ * @ws_color            Summary window current color.
+ * @wc_color            Cmdline window current color.
+ * @wa_color            Pgbouncer answer window current color.
+ * @target              Short name of the area which color will be changed.
+ * @target_color        Next color of the area.
+ ****************************************************************************
+ */
+void draw_color_help(WINDOW * w, int * ws_color, int * wc_color, int * wa_color, int target, int * target_color)
+{
+        wclear(w);
+
+        wprintw(w, "Help for color mapping - %s, version %.1f (%s)\n\n",
+                PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
+        wattron(w, COLOR_PAIR(*ws_color));
+        wprintw(w, "\tpgbconsole: 2015-05-15 19:28:48, load average: 1.09, 1.13, 1.18\n\
+\t      %%cpu: 12.5 us,  2.0 sy,  0.0 ni, 95.4 id,  0.1 wa,  0.0 hi,  0.\n\
+\t console 1: 127.0.0.1:6432 postgres@pgbouncer    connection state: ok\n\
+\t pgbouncer: pools: 3     databases: 3     clients: 55    servers: 9\n");
+        wattroff(w, COLOR_PAIR(*ws_color));
+
+        wattron(w, COLOR_PAIR(*wc_color));
+        wprintw(w, "\tNasty message or input prompt.\n");
+        wattroff(w, COLOR_PAIR(*wc_color));
+
+        wattron(w, COLOR_PAIR(*wa_color));
+        wattron(w, A_BOLD);
+        wprintw(w, "\ttype   user       database    state    addr        port    local_addr\n");
+        wattroff(w, A_BOLD);
+        wprintw(w, "\tC      postgres   pgbouncer   active   127.0.0.1   57139   127.0.0.1\n\
+\tC      pgbadmin   pgbouncer   active   127.0.0.1   57140   127.0.0.1\n\n");
+        wattroff(w, COLOR_PAIR(*wa_color));
+
+        wprintw(w, "1) Select a target as an upper case letter, current target is  %c :\n\
+\tS = Summary Data, M = Messages/Prompt, P = Pgbouncer Information\n", target);
+        wprintw(w, "2) Select a color as a number, current color is  %i :\n\
+\t0 = black,  1 = red,      2 = green,  3 = yellow,\n\
+\t4 = blue,   5 = magenta,  6 = cyan,   7 = white\n", *target_color);
+        wprintw(w, "3) Then use these keys when finished:\n\
+\t'Esc' to abort changes, 'Enter' to commit and end.\n");
+
+        touchwin(w);
+        wrefresh(w);
+}
+
+/*
+ ****************************************************** key press function ** 
+ * Change output colors.
+ *
+ * IN:
+ * @ws_color            Summary window current color.
+ * @wc_color            Cmdline window current color.
+ * @wa_color            Pgbouncer answer window current color.
+ **************************************************************************** 
+ */
+void change_colors(int * ws_color, int * wc_color, int * wa_color)
+{
+    WINDOW * w;
+    int ch,
+        target = 'S',
+        * target_color = ws_color;
+    int ws_save = *ws_color,
+        wc_save = *wc_color,
+        wa_save = *wa_color;
+
+    w = subwin(stdscr, 0, 0, 0, 0);
+    echo();
+    cbreak();
+    nodelay(w, FALSE);
+    keypad(w, TRUE);
+
+    do {
+        draw_color_help(w, ws_color, wc_color, wa_color, target, target_color);
+        ch = wgetch(w);
+        switch (ch) {
+            case 'S':
+                target = 'S';
+                target_color = ws_color;
+                break;
+            case 'M':
+                target = 'M';
+                target_color = wc_color;
+                break;
+            case 'P':
+                target = 'P';
+                target_color = wa_color;
+                break;
+            case '0': case '1': case '2': case '3':
+            case '4': case '5': case '6': case '7':
+                *target_color = ch - '0';
+                break;
+            default:
+                break;
+        }
+    } while (ch != '\n' && ch != 27);
+    
+    /* if Esc entered, restore previous colors */
+    if (ch == 27) {
+        *ws_color = ws_save;
+        *wc_color = wc_save;
+        *wa_color = wa_save;
+    }
+
+    noecho();
+    cbreak();
+    nodelay(w, TRUE);
+    keypad(w, FALSE);
+    delwin(w);
+}
+
+/*
  **************************************************************************** 
  * Main entry for pgbconsole program.
  **************************************************************************** 
@@ -1836,6 +2002,10 @@ int main (int argc, char *argv[])
     WINDOW  *w_summary, *w_cmdline, *w_answer, *w_log;
     struct stats_cpu_struct *st_cpu[2];
     float interval = 1000000;
+ 
+    int * ws_color = (int *) malloc(sizeof(int));
+    int * wc_color = (int *) malloc(sizeof(int));
+    int * wa_color = (int *) malloc(sizeof(int));
     
     /* Process args... */
     init_conn_opts(conn_opts);
@@ -1865,9 +2035,12 @@ int main (int argc, char *argv[])
     w_cmdline = newwin(1, 0, 4, 0);
     w_answer = newwin(0, 0, 5, 0);
 
+    init_colors(ws_color, wc_color, wa_color);
+
     /* main loop */
     while (1) {
         if (key_is_pressed()) {
+            wattron(w_cmdline, COLOR_PAIR(*wc_color));
             ch = getch();
 //            key_processing(ch);   /* not implemented */
             switch (ch) {
@@ -1936,8 +2109,11 @@ int main (int argc, char *argv[])
                 case 'I':
                     interval = change_refresh(w_cmdline, interval);
                     break;
+                case 'i':
+                    change_colors(ws_color, wc_color, wa_color); // wl_color ?
+                    break;
                 case 'h':
-                    wprintf(w_cmdline, "Print help screen");
+                    print_help_screen();
                     break;
                 case 'q':
                     endwin();
@@ -1948,7 +2124,11 @@ int main (int argc, char *argv[])
                     wprintw(w_cmdline, "Unknown command - try 'h' for help.");
                     break;
             }
+            wattroff(w_cmdline, COLOR_PAIR(*wc_color));
         } else {
+            wattron(w_summary, COLOR_PAIR(*ws_color));
+            wattron(w_answer, COLOR_PAIR(*wa_color));
+
             reconnect_if_failed(w_cmdline, conn_opts[console_index], conns[console_index]);
             wclear(w_summary);
             print_title(w_summary, argv[0]);
@@ -1966,6 +2146,8 @@ int main (int argc, char *argv[])
             if (conn_opts[console_index]->log_opened) {
                 print_log(w_log, conn_opts[console_index]);
             }
+            wattroff(w_summary, COLOR_PAIR(*ws_color));
+            wattroff(w_answer, COLOR_PAIR(*wa_color));
 
             usleep(interval);
         }

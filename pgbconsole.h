@@ -206,7 +206,15 @@ void
 bool
     check_pgb_listen_addr(struct conn_opts_struct * conn_opts);
 void
+    init_colors(int * ws_color, int * wc_color, int * wa_color);
+void
+    change_colors(int * ws_color, int * wc_color, int * wa_color);
+void
+    draw_color_help(WINDOW * w, int * ws_color, int * wc_color, int * wa_color, int target, int * target_color);
+void
     print_usage(void);
+void
+    print_help_screen(void);
 
 /* Pgbouncer action function */
 void do_reload(WINDOW * window, PGconn *conn);
