@@ -5,6 +5,10 @@
  ***************************************************************************
  * place license here (BSD)
  ***************************************************************************
+ * todo:
+ * - check password work
+ * ? mass reload/pause/resume/suspend
+ * ? restart pgbouncer
  */
 
 #include <arpa/inet.h>
@@ -1830,12 +1834,18 @@ float change_refresh(WINDOW * window, float interval)
  */
 void print_help_screen(void)
 {
-    FILE * fpout;
-    fpout = popen(PAGER, "w");
+    WINDOW * w;
+    int ch;
 
-    fprintf(fpout, "Help for interactive commands - %s version %.1f (%s)\n\n",
+    w = subwin(stdscr, 0, 0, 0, 0);
+    cbreak();
+    nodelay(w, FALSE);
+    keypad(w, TRUE);
+
+    wclear(w);
+    wprintw(w, "Help for interactive commands - %s version %.1f (%s)\n\n",
             PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
-    fprintf(fpout, "   1..8       switch between consoles.\n \
+    wprintw(w, "   1..8       switch between consoles.\n \
   a,c,d,p,s     show: 'a' stats, 'c' clients, 's' servers, 'd' databases, 'p' pools.\n \
   K,M,P,R,S,Z   perform: 'K' kill, 'M' reload, 'P' pause, 'R' resume,\n \
                          'S' suspend, 'Z' shutdown.\n \
@@ -1846,7 +1856,16 @@ void print_help_screen(void)
   I,i       'I' set refresh interval, 'i' change color scheme.\n \
   h         show help screen.\n \
   q         quit.\n\n");
-    pclose(fpout);
+    wprintw(w, "Type 'Esc' to continue.\n");
+
+    do {
+        ch = wgetch(w);
+    } while (ch != 27);
+
+    cbreak();
+    nodelay(w, TRUE);
+    keypad(w, FALSE);
+    delwin(w);
 }
 
 /*
@@ -1890,7 +1909,6 @@ void init_colors(int * ws_color, int * wc_color, int * wa_color)
 void draw_color_help(WINDOW * w, int * ws_color, int * wc_color, int * wa_color, int target, int * target_color)
 {
         wclear(w);
-
         wprintw(w, "Help for color mapping - %s, version %.1f (%s)\n\n",
                 PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
         wattron(w, COLOR_PAIR(*ws_color));
