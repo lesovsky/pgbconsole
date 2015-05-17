@@ -1,13 +1,6 @@
 /*
- * pgbconsole: top-like console for Pgbouncer - PostgerSQL connection pooler
- * (C) 2015 by Alexey Lesovsky (lesovsky <at> gmail.com)
- *
- ***************************************************************************
- * place license here (BSD)
- ***************************************************************************
- * todo:
- * ? mass reload/pause/resume/suspend
- * ? restart pgbouncer
+ * pgbconsole: top-like console for Pgbouncer - PostgreSQL connection pooler.
+ * (C) 2015 by Alexey V. Lesovsky (lesovsky <at> gmail.com)
  */
 
 #include <arpa/inet.h>
@@ -283,19 +276,6 @@ int create_pgbrc_conn(int argc, char *argv[],
                 "WARNING: failed to open %s. Try use defaults.\n", pgbrcpath);
         return PGBRC_READ_ERR;
     }
-}
-
-/*
- ****************************************************************************
- * Print connections from conn_opts (debug function, will be removed)
- ****************************************************************************
- */
-void print_conn(struct conn_opts_struct * conn_opts[])
-{
-    int i;
-    for ( i = 0; i < MAX_CONSOLE; i++ )
-        if (conn_opts[i]->conn_used)
-            printf("qq: %s\n", conn_opts[i]->conninfo);
 }
 
 /*
@@ -1132,15 +1112,6 @@ void print_pgbouncer_summary(WINDOW * window, PGconn *conn)
             " pgbouncer: pools: %-5i databases: %-5i clients: %-5i servers: %-5i\n",
             pl_count, db_count, cl_count, sv_count);
 }
-/*
- ****************************************************************************
- *
- ****************************************************************************
- */
-void key_processing(int ch)
-{
-
-}
 
 /*
  ****************************************************** key press function **
@@ -1460,7 +1431,7 @@ void do_shutdown(WINDOW * window, PGconn * conn)
     if (strlen(confirm) != 0 && !strcmp(confirm, "YES") && *with_esc == false) {
         res = PQexec(conn, query);
         if (PQresultStatus(res) != PG_CMD_OK)
-            wprintw(window, "Pgbouncer shutdown was successful with: %s",
+            wprintw(window, "Pgbouncer shutdown failed with: %s",
                     PQresultErrorMessage(res));
         PQclear(res);
     } else if ((strlen(confirm) == 0 || strcmp(confirm, "YES")) && *with_esc == false ) {
@@ -2074,16 +2045,16 @@ void change_colors(int * ws_color, int * wc_color, int * wa_color, int * wl_colo
  */
 int main (int argc, char *argv[])
 {
-    PGresult    * res;
+    WINDOW  *w_summary, *w_cmdline, *w_answer, *w_log;
     struct conn_opts_struct * conn_opts[MAX_CONSOLE];
-    PGconn      * conns[8];
+    struct stats_cpu_struct * st_cpu[2];
     enum context query_context = pools;
+    PGresult    * res;
+    PGconn      * conns[8];
+    float interval = 1000000;
     static int console_no = 1;
     static int console_index = 0;
     int ch;
-    WINDOW  *w_summary, *w_cmdline, *w_answer, *w_log;
-    struct stats_cpu_struct *st_cpu[2];
-    float interval = 1000000;
 
     int * ws_color = (int *) malloc(sizeof(int)),
         * wc_color = (int *) malloc(sizeof(int)),
@@ -2105,7 +2076,6 @@ int main (int argc, char *argv[])
 
     /* open connections to pgbouncers */
     prepare_conninfo(conn_opts);
-    print_conn(conn_opts);
     open_connections(conn_opts, conns);
 
     /* init ncurses windows */
@@ -2125,7 +2095,6 @@ int main (int argc, char *argv[])
         if (key_is_pressed()) {
             wattron(w_cmdline, COLOR_PAIR(*wc_color));
             ch = getch();
-//            key_processing(ch);   /* not implemented */
             switch (ch) {
                 case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8':
                     console_index = switch_conn(w_cmdline, conn_opts, ch, console_index, console_no);
@@ -2239,7 +2208,7 @@ int main (int argc, char *argv[])
     }
 
     /* quit */
-    endwin();
-    close_connections(conn_opts, conns);
-    return 0;
+//    endwin();
+//    close_connections(conn_opts, conns);
+//    return 0;
 }
