@@ -7,6 +7,7 @@
  ***************************************************************************
  * todo:
  * - check password work
+ * - add colors for logs
  * ? mass reload/pause/resume/suspend
  * ? restart pgbouncer
  */
@@ -73,6 +74,7 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
         memset(conn_opts[i], 0, CONN_OPTS_SIZE);
         conn_opts[i]->terminal = i;
         conn_opts[i]->conn_used = false;
+        strcpy(conn_opts[i]->host, "");
         strcpy(conn_opts[i]->hostaddr, "");
         strcpy(conn_opts[i]->port, "");
         strcpy(conn_opts[i]->user, "");
@@ -181,7 +183,7 @@ void create_initial_conn(int argc, char *argv[],
     }
 
     if ( strlen(conn_opts[0]->hostaddr) == 0 )
-        strcpy(conn_opts[0]->hostaddr, DEFAULT_HOSTADDR);
+        strcpy(conn_opts[0]->host, DEFAULT_HOST);
 
     if ( strlen(conn_opts[0]->port) == 0 )
         strcpy(conn_opts[0]->port, DEFAULT_PORT);
@@ -269,7 +271,7 @@ int create_pgbrc_conn(int argc, char *argv[],
     if ((fp = fopen(pgbrcpath, "r")) != NULL) {
         while (fgets(strbuf, 4096, fp) != 0) {
             sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:\n]",
-                conn_opts[i]->hostaddr, conn_opts[i]->port,
+                conn_opts[i]->host, conn_opts[i]->port,
                 conn_opts[i]->dbname,   conn_opts[i]->user,
                 conn_opts[i]->password);
             conn_opts[i]->terminal = i;
@@ -314,8 +316,13 @@ void prepare_conninfo(struct conn_opts_struct * conn_opts[])
     int i;
     for ( i = 0; i < MAX_CONSOLE; i++ )
         if (conn_opts[i]->conn_used) {
-            strcat(conn_opts[i]->conninfo, "hostaddr=");
-            strcat(conn_opts[i]->conninfo, conn_opts[i]->hostaddr);
+            if ((strlen(conn_opts[i]->host)) != 0) {
+                strcat(conn_opts[i]->conninfo, "host=");
+                strcat(conn_opts[i]->conninfo, conn_opts[i]->host);
+            } else {
+                strcat(conn_opts[i]->conninfo, "hostaddr=");
+                strcat(conn_opts[i]->conninfo, conn_opts[i]->hostaddr);
+            }
             strcat(conn_opts[i]->conninfo, " port=");
             strcat(conn_opts[i]->conninfo, conn_opts[i]->port);
             strcat(conn_opts[i]->conninfo, " user=");
@@ -443,6 +450,7 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
  */
 void clear_conn_opts(struct conn_opts_struct * conn_opts[], int i)
 {
+    strcpy(conn_opts[i]->host, "");
     strcpy(conn_opts[i]->hostaddr, "");
     strcpy(conn_opts[i]->port, "");
     strcpy(conn_opts[i]->user, "");
@@ -469,6 +477,7 @@ void shift_consoles(struct conn_opts_struct * conn_opts[], PGconn * conns[], int
 {
     while (conn_opts[i + 1]->conn_used != false) {
         fputc(i, stderr);
+        strcpy(conn_opts[i]->host,  conn_opts[i + 1]->host);
         strcpy(conn_opts[i]->hostaddr,  conn_opts[i + 1]->hostaddr);
         strcpy(conn_opts[i]->port,      conn_opts[i + 1]->port);
         strcpy(conn_opts[i]->user,      conn_opts[i + 1]->user);
@@ -803,7 +812,7 @@ void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn
     }
         wprintw(window, " console %i: %s:%s %s@%s\t connection state: %s\n",
             console_no,
-            conn_opts->hostaddr,
+            strlen(conn_opts->host) != 0 ? conn_opts->host : conn_opts->hostaddr,
             conn_opts->port,
             conn_opts->user,
             conn_opts->dbname,
@@ -1458,7 +1467,8 @@ void write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[])
     if ((fp = fopen(pgbrcpath, "w")) != NULL ) {
         while (conn_opts[i]->conn_used) {
             fprintf(fp, "%s:%s:%s:%s:%s\n",
-                    conn_opts[i]->hostaddr, conn_opts[i]->port,
+                    strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
+                    conn_opts[i]->port,
                     conn_opts[i]->dbname,   conn_opts[i]->user,
                     conn_opts[i]->password);
             i++;

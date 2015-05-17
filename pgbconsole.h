@@ -15,7 +15,7 @@
 #define MAX_CONSOLE 8
 
 /* connectins defaults */
-#define DEFAULT_HOSTADDR    "127.0.0.1"
+#define DEFAULT_HOST        "/tmp"
 #define DEFAULT_PORT        "6432"
 #define DEFAULT_USER        "postgres"
 #define DEFAULT_DBNAME      "pgbouncer"
@@ -45,6 +45,7 @@ struct conn_opts_struct
 {
     int terminal;
     bool conn_used;
+    char host[BUFFERSIZE];
     char hostaddr[BUFFERSIZE];
     char port[BUFFERSIZE];
     char user[BUFFERSIZE];
