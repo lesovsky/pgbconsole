@@ -6,7 +6,6 @@
  * place license here (BSD)
  ***************************************************************************
  * todo:
- * - add colors for logs
  * ? mass reload/pause/resume/suspend
  * ? restart pgbouncer
  */
@@ -1922,9 +1921,10 @@ void print_help_screen(void)
  * @ws_color            Summary window current color.
  * @wc_color            Cmdline window current color.
  * @wa_color            Pgbouncer answer window current color.
+ * @wl_color            Pgbouncer log file window current color.
  ****************************************************************************
  */
-void init_colors(int * ws_color, int * wc_color, int * wa_color)
+void init_colors(int * ws_color, int * wc_color, int * wa_color, int * wl_color)
 {
     start_color();
     init_pair(0, COLOR_BLACK,   COLOR_BLACK);
@@ -1939,6 +1939,7 @@ void init_colors(int * ws_color, int * wc_color, int * wa_color)
     *ws_color = 7;
     *wc_color = 7;
     *wa_color = 7;
+    *wl_color = 7;
 }
 
 /************************************************** color-related function **
@@ -1948,11 +1949,12 @@ void init_colors(int * ws_color, int * wc_color, int * wa_color)
  * @ws_color            Summary window current color.
  * @wc_color            Cmdline window current color.
  * @wa_color            Pgbouncer answer window current color.
+ * @wl_color            Pgbouncer log file window current color.
  * @target              Short name of the area which color will be changed.
  * @target_color        Next color of the area.
  ****************************************************************************
  */
-void draw_color_help(WINDOW * w, int * ws_color, int * wc_color, int * wa_color, int target, int * target_color)
+void draw_color_help(WINDOW * w, int * ws_color, int * wc_color, int * wa_color, int * wl_color, int target, int * target_color)
 {
         wclear(w);
         wprintw(w, "Help for color mapping - %s, version %.1f (%s)\n\n",
@@ -1976,13 +1978,18 @@ void draw_color_help(WINDOW * w, int * ws_color, int * wc_color, int * wa_color,
 \tC      pgbadmin   pgbouncer   active   127.0.0.1   57140   127.0.0.1\n\n");
         wattroff(w, COLOR_PAIR(*wa_color));
 
+        wattron(w, COLOR_PAIR(*wl_color));
+        wprintw(w, "\t2015-05-15 19:27:30.753 4136 LOG Stats: 98 req/s, in 1583 b/s, out 19\n\
+\t2015-05-15 19:28:30.701 4136 LOG Stats: 103 req/s, in 1600 b/s, out 18\n\n");
+        wattroff(w, COLOR_PAIR(*wl_color));
+
+
         wprintw(w, "1) Select a target as an upper case letter, current target is  %c :\n\
-\tS = Summary Data, M = Messages/Prompt, P = Pgbouncer Information\n", target);
+\tS = Summary Data, M = Messages/Prompt, P = Pgbouncer Information, L = Pgbouncer Log\n", target);
         wprintw(w, "2) Select a color as a number, current color is  %i :\n\
 \t0 = black,  1 = red,      2 = green,  3 = yellow,\n\
 \t4 = blue,   5 = magenta,  6 = cyan,   7 = white\n", *target_color);
-        wprintw(w, "3) Then use these keys when finished:\n\
-\t'Esc' to abort changes, 'Enter' to commit and end.\n");
+        wprintw(w, "3) Then use keys: 'Esc' to abort changes, 'Enter' to commit and end.\n");
 
         touchwin(w);
         wrefresh(w);
@@ -1996,9 +2003,10 @@ void draw_color_help(WINDOW * w, int * ws_color, int * wc_color, int * wa_color,
  * @ws_color            Summary window current color.
  * @wc_color            Cmdline window current color.
  * @wa_color            Pgbouncer answer window current color.
+ * @wl_color            Pgbouncer log file window current color.
  ****************************************************************************
  */
-void change_colors(int * ws_color, int * wc_color, int * wa_color)
+void change_colors(int * ws_color, int * wc_color, int * wa_color, int * wl_color)
 {
     WINDOW * w;
     int ch,
@@ -2006,7 +2014,8 @@ void change_colors(int * ws_color, int * wc_color, int * wa_color)
         * target_color = ws_color;
     int ws_save = *ws_color,
         wc_save = *wc_color,
-        wa_save = *wa_color;
+        wa_save = *wa_color,
+        wl_save = *wl_color;
 
     w = subwin(stdscr, 0, 0, 0, 0);
     echo();
@@ -2015,7 +2024,7 @@ void change_colors(int * ws_color, int * wc_color, int * wa_color)
     keypad(w, TRUE);
 
     do {
-        draw_color_help(w, ws_color, wc_color, wa_color, target, target_color);
+        draw_color_help(w, ws_color, wc_color, wa_color, wl_color, target, target_color);
         ch = wgetch(w);
         switch (ch) {
             case 'S':
@@ -2029,6 +2038,10 @@ void change_colors(int * ws_color, int * wc_color, int * wa_color)
             case 'P':
                 target = 'P';
                 target_color = wa_color;
+                break;
+            case 'L':
+                target = 'L';
+                target_color = wl_color;
                 break;
             case '0': case '1': case '2': case '3':
             case '4': case '5': case '6': case '7':
@@ -2044,6 +2057,7 @@ void change_colors(int * ws_color, int * wc_color, int * wa_color)
         *ws_color = ws_save;
         *wc_color = wc_save;
         *wa_color = wa_save;
+        *wl_color = wl_save;
     }
 
     noecho();
@@ -2071,9 +2085,10 @@ int main (int argc, char *argv[])
     struct stats_cpu_struct *st_cpu[2];
     float interval = 1000000;
 
-    int * ws_color = (int *) malloc(sizeof(int));
-    int * wc_color = (int *) malloc(sizeof(int));
-    int * wa_color = (int *) malloc(sizeof(int));
+    int * ws_color = (int *) malloc(sizeof(int)),
+        * wc_color = (int *) malloc(sizeof(int)),
+        * wa_color = (int *) malloc(sizeof(int)),
+        * wl_color = (int *) malloc(sizeof(int));
 
     /* Process args... */
     init_conn_opts(conn_opts);
@@ -2103,7 +2118,7 @@ int main (int argc, char *argv[])
     w_cmdline = newwin(1, 0, 4, 0);
     w_answer = newwin(0, 0, 5, 0);
 
-    init_colors(ws_color, wc_color, wa_color);
+    init_colors(ws_color, wc_color, wa_color, wl_color);
 
     /* main loop */
     while (1) {
@@ -2178,7 +2193,7 @@ int main (int argc, char *argv[])
                     interval = change_refresh(w_cmdline, interval);
                     break;
                 case 'i':
-                    change_colors(ws_color, wc_color, wa_color); // wl_color ?
+                    change_colors(ws_color, wc_color, wa_color, wl_color);
                     break;
                 case 'h':
                     print_help_screen();
@@ -2212,7 +2227,9 @@ int main (int argc, char *argv[])
             wclear(w_cmdline);
 
             if (conn_opts[console_index]->log_opened) {
+                wattron(w_log, COLOR_PAIR(*wl_color));
                 print_log(w_log, conn_opts[console_index]);
+                wattroff(w_log, COLOR_PAIR(*wl_color));
             }
             wattroff(w_summary, COLOR_PAIR(*ws_color));
             wattroff(w_answer, COLOR_PAIR(*wa_color));
