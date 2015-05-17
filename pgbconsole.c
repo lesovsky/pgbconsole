@@ -6,7 +6,6 @@
  * place license here (BSD)
  ***************************************************************************
  * todo:
- * - check password work
  * - add colors for logs
  * ? mass reload/pause/resume/suspend
  * ? restart pgbouncer
@@ -329,8 +328,10 @@ void prepare_conninfo(struct conn_opts_struct * conn_opts[])
             strcat(conn_opts[i]->conninfo, conn_opts[i]->user);
             strcat(conn_opts[i]->conninfo, " dbname=");
             strcat(conn_opts[i]->conninfo, conn_opts[i]->dbname);
-            strcat(conn_opts[i]->conninfo, " password=");
-            strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
+            if ((strlen(conn_opts[i]->password)) != 0) {
+                strcat(conn_opts[i]->conninfo, " password=");
+                strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
+            }
         }
 }
 
@@ -351,8 +352,19 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
     for ( i = 0; i < MAX_CONSOLE; i++ ) {
         if (conn_opts[i]->conn_used) {
             conns[i] = PQconnectdb(conn_opts[i]->conninfo);
-            if ( PQstatus(conns[i]) == CONNECTION_BAD )
-                puts("Unable to connect to the pgbouncer");
+        }
+        if ( PQstatus(conns[i]) == CONNECTION_BAD && PQconnectionNeedsPassword(conns[i]) == 1) {
+            printf("%s:%s %s@%s require ", 
+                    strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
+                    conn_opts[i]->port, conn_opts[i]->user, conn_opts[i]->dbname);
+            strcpy(conn_opts[i]->password, password_prompt("password: ", 100, false));
+            strcat(conn_opts[i]->conninfo, " password=");
+            strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
+            conns[i] = PQconnectdb(conn_opts[i]->conninfo);
+        } else if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
+            printf("Unable to connect to %s:%s %s@%s",
+                    strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
+                    conn_opts[i]->port, conn_opts[i]->user, conn_opts[i]->dbname);
         }
     }
 }
@@ -378,7 +390,8 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
 {
     int i;
     char params[128];
-    bool * with_esc = (bool *) malloc(sizeof(bool));
+    bool * with_esc = (bool *) malloc(sizeof(bool)),
+         * with_esc2 = (bool *) malloc(sizeof(bool));
     char * str = (char *) malloc(sizeof(char) * 128);
 
     echo();
@@ -408,14 +421,29 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
                 strcat(conn_opts[i]->conninfo, " dbname=");
                 strcat(conn_opts[i]->conninfo, conn_opts[i]->dbname);
 
-                // check here password need.
-
                 conns[i] = PQconnectdb(conn_opts[i]->conninfo);
+                if ( PQstatus(conns[i]) == CONNECTION_BAD && PQconnectionNeedsPassword(conns[i]) == 1) {
+                    noecho();
+                    nodelay(window, FALSE);
+                    wclear(window);
+                    wprintw(window, "Required password: ");
+                    wrefresh(window);
+                    cmd_readline(window, 19, with_esc2, str);
+
+                    if (strlen(str) != 0 && *with_esc2 == false) {
+                        strcpy(conn_opts[i]->password, str);
+                        free(str);
+                        strcat(conn_opts[i]->conninfo, " password=");
+                        strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
+                        conns[i] = PQconnectdb(conn_opts[i]->conninfo);
+                    }
+                }
                 if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
                     wprintw(window, "Unable to connect to the pgbouncer.");
                     clear_conn_opts(conn_opts, i);
                     PQfinish(conns[i]);
                 } else {
+                    wclear(window);
                     wprintw(window, "Successfully connected.");
                     console_index = conn_opts[i]->terminal;
                 }
@@ -431,6 +459,7 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
     }
 
     free(with_esc);
+    free(with_esc2);
     noecho();
     cbreak();
     nodelay(window, TRUE);
