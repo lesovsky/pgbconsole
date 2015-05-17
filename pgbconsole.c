@@ -1613,8 +1613,8 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
     char host[NI_MAXHOST];
 
     if (getifaddrs(&ifaddr) == -1) {
-        perror("getifaddrs");
-        exit(EXIT_FAILURE);
+        freeifaddrs(ifaddr);
+        return false;
     }
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == NULL)
@@ -1631,16 +1631,19 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
                             NULL, 0, NI_NUMERICHOST);
             if (s != 0) {
                 printf("getnameinfo() failed: %s\n", gai_strerror(s));
-                exit(EXIT_FAILURE);
+                return false;
             }
-            if (!strcmp(host, conn_opts->hostaddr)) {
-                freeifaddrs(ifaddr);
-                return true;
-                break;
+            if (!strcmp(host, conn_opts->host) || 
+                !strcmp(host, conn_opts->hostaddr) ||
+                !strncmp(conn_opts->host, "/", 1)) {
+                    freeifaddrs(ifaddr);
+                    return true;
+                    break;
             }
         }
     }
 
+    freeifaddrs(ifaddr);
     return false;
 }
 
@@ -1714,6 +1717,7 @@ void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * con
             return;
         } else {
             wprintw(window, "Do nothing. Current pgbouncer not local.");
+            free(logfile);
             return;
         }
     } else {
