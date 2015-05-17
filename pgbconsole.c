@@ -509,8 +509,7 @@ void clear_conn_opts(struct conn_opts_struct * conn_opts[], int i)
 void shift_consoles(struct conn_opts_struct * conn_opts[], PGconn * conns[], int i)
 {
     while (conn_opts[i + 1]->conn_used != false) {
-        fputc(i, stderr);
-        strcpy(conn_opts[i]->host,  conn_opts[i + 1]->host);
+        strcpy(conn_opts[i]->host,      conn_opts[i + 1]->host);
         strcpy(conn_opts[i]->hostaddr,  conn_opts[i + 1]->hostaddr);
         strcpy(conn_opts[i]->port,      conn_opts[i + 1]->port);
         strcpy(conn_opts[i]->user,      conn_opts[i + 1]->user);
@@ -521,7 +520,7 @@ void shift_consoles(struct conn_opts_struct * conn_opts[], PGconn * conns[], int
         if (i == MAX_CONSOLE - 1)
             break;
     }
-    conn_opts[i]->conn_used = false;
+    clear_conn_opts(conn_opts, i);
 }
 
 /*
