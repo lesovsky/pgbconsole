@@ -352,19 +352,19 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
     for ( i = 0; i < MAX_CONSOLE; i++ ) {
         if (conn_opts[i]->conn_used) {
             conns[i] = PQconnectdb(conn_opts[i]->conninfo);
-        }
-        if ( PQstatus(conns[i]) == CONNECTION_BAD && PQconnectionNeedsPassword(conns[i]) == 1) {
-            printf("%s:%s %s@%s require ", 
-                    strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
-                    conn_opts[i]->port, conn_opts[i]->user, conn_opts[i]->dbname);
-            strcpy(conn_opts[i]->password, password_prompt("password: ", 100, false));
-            strcat(conn_opts[i]->conninfo, " password=");
-            strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
-            conns[i] = PQconnectdb(conn_opts[i]->conninfo);
-        } else if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
-            printf("Unable to connect to %s:%s %s@%s",
-                    strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
-                    conn_opts[i]->port, conn_opts[i]->user, conn_opts[i]->dbname);
+            if ( PQstatus(conns[i]) == CONNECTION_BAD && PQconnectionNeedsPassword(conns[i]) == 1) {
+                printf("%s:%s %s@%s require ", 
+                        strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
+                        conn_opts[i]->port, conn_opts[i]->user, conn_opts[i]->dbname);
+                strcpy(conn_opts[i]->password, password_prompt("password: ", 100, false));
+                strcat(conn_opts[i]->conninfo, " password=");
+                strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
+                conns[i] = PQconnectdb(conn_opts[i]->conninfo);
+            } else if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
+                printf("Unable to connect to %s:%s %s@%s",
+                        strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
+                        conn_opts[i]->port, conn_opts[i]->user, conn_opts[i]->dbname);
+            }
         }
     }
 }
@@ -392,7 +392,8 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
     char params[128];
     bool * with_esc = (bool *) malloc(sizeof(bool)),
          * with_esc2 = (bool *) malloc(sizeof(bool));
-    char * str = (char *) malloc(sizeof(char) * 128);
+    char * str = (char *) malloc(sizeof(char) * 128),
+         * str2 = (char *) malloc(sizeof(char) * 128);
 
     echo();
     cbreak();
@@ -423,29 +424,32 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
 
                 conns[i] = PQconnectdb(conn_opts[i]->conninfo);
                 if ( PQstatus(conns[i]) == CONNECTION_BAD && PQconnectionNeedsPassword(conns[i]) == 1) {
+                    PQfinish(conns[i]);
                     noecho();
                     nodelay(window, FALSE);
                     wclear(window);
                     wprintw(window, "Required password: ");
                     wrefresh(window);
-                    cmd_readline(window, 19, with_esc2, str);
+                    cmd_readline(window, 19, with_esc2, str2);
 
-                    if (strlen(str) != 0 && *with_esc2 == false) {
-                        strcpy(conn_opts[i]->password, str);
-                        free(str);
+                    if (strlen(str2) != 0 && *with_esc2 == false) {
+                        strcpy(conn_opts[i]->password, str2);
                         strcat(conn_opts[i]->conninfo, " password=");
                         strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
                         conns[i] = PQconnectdb(conn_opts[i]->conninfo);
+                        if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
+                            wprintw(window, "Unable to connect to the pgbouncer.");
+                            PQfinish(conns[i]);
+                            clear_conn_opts(conn_opts, i);
+                        } else {
+                            wclear(window);
+                            wprintw(window, "Successfully connected.");
+                            console_index = conn_opts[i]->terminal;
+                        }
+                    } else if (with_esc) {
+                        clear_conn_opts(conn_opts, i);
                     }
-                }
-                if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
-                    wprintw(window, "Unable to connect to the pgbouncer.");
-                    clear_conn_opts(conn_opts, i);
-                    PQfinish(conns[i]);
-                } else {
-                    wclear(window);
-                    wprintw(window, "Successfully connected.");
-                    console_index = conn_opts[i]->terminal;
+                    free(str2);
                 }
                 break;
             } else if (strlen(params) == 0 && *with_esc == false) {
