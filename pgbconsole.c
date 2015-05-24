@@ -251,6 +251,10 @@ int create_pgbrc_conn(int argc, char *argv[],
     strcat(pgbrcpath, "/");
     strcat(pgbrcpath, PGBRC_FILE);
 
+    if (access(pgbrcpath, F_OK) == -1) {
+        return PGBRC_READ_ERR;
+    }
+
     stat(pgbrcpath, &statbuf);
     if ( statbuf.st_mode & (S_IRWXG | S_IRWXO) ) {
         fprintf(stderr,
