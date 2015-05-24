@@ -389,8 +389,8 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
             free(str);
             if (strlen(params) != 0 && *with_esc == false) {
                 sscanf(params, "%s %s %s %s",
-                    &conn_opts[i]->hostaddr,    &conn_opts[i]->port,
-                    &conn_opts[i]->user,        &conn_opts[i]->dbname);
+                    conn_opts[i]->hostaddr,    conn_opts[i]->port,
+                    conn_opts[i]->user,        conn_opts[i]->dbname);
                 conn_opts[i]->conn_used = true;
                 strcat(conn_opts[i]->conninfo, "hostaddr=");
                 strcat(conn_opts[i]->conninfo, conn_opts[i]->hostaddr);
@@ -417,6 +417,7 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
                         strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
                         conns[i] = PQconnectdb(conn_opts[i]->conninfo);
                         if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
+                            wclear(window);
                             wprintw(window, "Unable to connect to the pgbouncer.");
                             PQfinish(conns[i]);
                             clear_conn_opts(conn_opts, i);
@@ -429,6 +430,11 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
                         clear_conn_opts(conn_opts, i);
                     }
                     free(str2);
+                }
+                else {
+                    wclear(window);
+                    wprintw(window, "Successfully connected.");
+                    console_index = conn_opts[i]->terminal;
                 }
                 break;
             } else if (strlen(params) == 0 && *with_esc == false) {
@@ -761,7 +767,7 @@ float get_loadavg(const int m)
     if ( m != 1 && m != 5 && m != 15 )
         fprintf(stderr, "invalid value for load average\n");
 
-    float avg1, avg5, avg15;
+    float avg, avg1, avg5, avg15;
     FILE *loadavg_fd;
 
     if ((loadavg_fd = fopen(LOADAVG_FILE, "r")) == NULL) {
@@ -773,10 +779,11 @@ float get_loadavg(const int m)
     }
 
     switch (m) {
-        case 1: return avg1; break;
-        case 5: return avg5; break;
-        case 15: return avg15; break;
+        case 1: avg = avg1; break;
+        case 5: avg = avg5; break;
+        case 15: avg = avg15; break;
     }
+    return avg;
 }
 
 
@@ -1533,7 +1540,6 @@ struct colAttrs * calculate_width(struct colAttrs *columns, int row_count, int c
 void show_config(PGconn * conn)
 {
     int  row_count, col_count, row, col, i;
-    char line[BUFFERSIZE];
     FILE *fpout;
     PGresult * res;
     struct colAttrs *columns;
@@ -1822,25 +1828,21 @@ float change_refresh(WINDOW * window, float interval)
             interval = atof(value);
             if (interval < 0) {
                 wprintw(window, "Should be positive value.");
-                free(with_esc);
-                return interval_save;
+                interval = interval_save;
             } else {
-                free(with_esc);
-                return interval * 1000000;
+              interval = interval * 1000000;
             }
         }
     } else if (strlen(value) == 0 && *with_esc == false ) {
-        free(with_esc);
-        return interval_save;
-    } else {
-        free(with_esc);
-        return interval_save;
+        interval = interval_save;
     }
 
-     noecho();
-     cbreak();
-     nodelay(window, TRUE);
-     keypad(window, FALSE);
+    free(with_esc);
+    noecho();
+    cbreak();
+    nodelay(window, TRUE);
+    keypad(window, FALSE);
+    return interval;
 }
 
 /*
