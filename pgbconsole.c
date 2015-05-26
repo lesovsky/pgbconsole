@@ -66,7 +66,6 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
         conn_opts[i]->terminal = i;
         conn_opts[i]->conn_used = false;
         strcpy(conn_opts[i]->host, "");
-        strcpy(conn_opts[i]->hostaddr, "");
         strcpy(conn_opts[i]->port, "");
         strcpy(conn_opts[i]->user, "");
         strcpy(conn_opts[i]->dbname, "");
@@ -133,7 +132,7 @@ void create_initial_conn(int argc, char *argv[],
         switch(param)
         {
             case 'h':
-                strcpy(conn_opts[0]->hostaddr, optarg);
+                strcpy(conn_opts[0]->host, optarg);
                 break;
             case 'p':
                 strcpy(conn_opts[0]->port, optarg);
@@ -173,7 +172,7 @@ void create_initial_conn(int argc, char *argv[],
         optind++;
     }
 
-    if ( strlen(conn_opts[0]->hostaddr) == 0 )
+    if ( strlen(conn_opts[0]->host) == 0 )
         strcpy(conn_opts[0]->host, DEFAULT_HOST);
 
     if ( strlen(conn_opts[0]->port) == 0 )
@@ -298,13 +297,8 @@ void prepare_conninfo(struct conn_opts_struct * conn_opts[])
     int i;
     for ( i = 0; i < MAX_CONSOLE; i++ )
         if (conn_opts[i]->conn_used) {
-            if ((strlen(conn_opts[i]->host)) != 0) {
-                strcat(conn_opts[i]->conninfo, "host=");
-                strcat(conn_opts[i]->conninfo, conn_opts[i]->host);
-            } else {
-                strcat(conn_opts[i]->conninfo, "hostaddr=");
-                strcat(conn_opts[i]->conninfo, conn_opts[i]->hostaddr);
-            }
+            strcat(conn_opts[i]->conninfo, "host=");
+            strcat(conn_opts[i]->conninfo, conn_opts[i]->host);
             strcat(conn_opts[i]->conninfo, " port=");
             strcat(conn_opts[i]->conninfo, conn_opts[i]->port);
             strcat(conn_opts[i]->conninfo, " user=");
@@ -337,16 +331,16 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
             conns[i] = PQconnectdb(conn_opts[i]->conninfo);
             if ( PQstatus(conns[i]) == CONNECTION_BAD && PQconnectionNeedsPassword(conns[i]) == 1) {
                 printf("%s:%s %s@%s require ", 
-                        strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
-                        conn_opts[i]->port, conn_opts[i]->user, conn_opts[i]->dbname);
+                        conn_opts[i]->host, conn_opts[i]->port,
+                        conn_opts[i]->user, conn_opts[i]->dbname);
                 strcpy(conn_opts[i]->password, password_prompt("password: ", 100, false));
                 strcat(conn_opts[i]->conninfo, " password=");
                 strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
                 conns[i] = PQconnectdb(conn_opts[i]->conninfo);
             } else if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
                 printf("Unable to connect to %s:%s %s@%s",
-                        strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
-                        conn_opts[i]->port, conn_opts[i]->user, conn_opts[i]->dbname);
+                        conn_opts[i]->host, conn_opts[i]->port,
+                        conn_opts[i]->user, conn_opts[i]->dbname);
             }
         }
     }
@@ -393,11 +387,11 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
             free(str);
             if (strlen(params) != 0 && *with_esc == false) {
                 sscanf(params, "%s %s %s %s",
-                    conn_opts[i]->hostaddr,    conn_opts[i]->port,
+                    conn_opts[i]->host,    conn_opts[i]->port,
                     conn_opts[i]->user,        conn_opts[i]->dbname);
                 conn_opts[i]->conn_used = true;
-                strcat(conn_opts[i]->conninfo, "hostaddr=");
-                strcat(conn_opts[i]->conninfo, conn_opts[i]->hostaddr);
+                strcat(conn_opts[i]->conninfo, "host=");
+                strcat(conn_opts[i]->conninfo, conn_opts[i]->host);
                 strcat(conn_opts[i]->conninfo, " port=");
                 strcat(conn_opts[i]->conninfo, conn_opts[i]->port);
                 strcat(conn_opts[i]->conninfo, " user=");
@@ -473,7 +467,6 @@ int add_connection(WINDOW * window, struct conn_opts_struct * conn_opts[],
 void clear_conn_opts(struct conn_opts_struct * conn_opts[], int i)
 {
     strcpy(conn_opts[i]->host, "");
-    strcpy(conn_opts[i]->hostaddr, "");
     strcpy(conn_opts[i]->port, "");
     strcpy(conn_opts[i]->user, "");
     strcpy(conn_opts[i]->dbname, "");
@@ -499,7 +492,6 @@ void shift_consoles(struct conn_opts_struct * conn_opts[], PGconn * conns[], int
 {
     while (conn_opts[i + 1]->conn_used != false) {
         strcpy(conn_opts[i]->host,      conn_opts[i + 1]->host);
-        strcpy(conn_opts[i]->hostaddr,  conn_opts[i + 1]->hostaddr);
         strcpy(conn_opts[i]->port,      conn_opts[i + 1]->port);
         strcpy(conn_opts[i]->user,      conn_opts[i + 1]->user);
         strcpy(conn_opts[i]->dbname,    conn_opts[i + 1]->dbname);
@@ -834,10 +826,8 @@ void print_conninfo(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn
     }
         wprintw(window, " console %i: %s:%s %s@%s\t connection state: %s\n",
             console_no,
-            strlen(conn_opts->host) != 0 ? conn_opts->host : conn_opts->hostaddr,
-            conn_opts->port,
-            conn_opts->user,
-            conn_opts->dbname,
+            conn_opts->host, conn_opts->port,
+            conn_opts->user, conn_opts->dbname,
             state);
 }
 
@@ -1480,8 +1470,7 @@ void write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[])
     if ((fp = fopen(pgbrcpath, "w")) != NULL ) {
         while (conn_opts[i]->conn_used) {
             fprintf(fp, "%s:%s:%s:%s:%s\n",
-                    strlen(conn_opts[i]->host) != 0 ? conn_opts[i]->host : conn_opts[i]->hostaddr,
-                    conn_opts[i]->port,
+                    conn_opts[i]->host,     conn_opts[i]->port,
                     conn_opts[i]->dbname,   conn_opts[i]->user,
                     conn_opts[i]->password);
             i++;
@@ -1613,7 +1602,6 @@ bool check_pgb_listen_addr(struct conn_opts_struct * conn_opts)
                 return false;
             }
             if (!strcmp(host, conn_opts->host) || 
-                !strcmp(host, conn_opts->hostaddr) ||
                 !strncmp(conn_opts->host, "/", 1)) {
                     freeifaddrs(ifaddr);
                     return true;
