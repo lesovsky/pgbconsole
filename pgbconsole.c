@@ -212,10 +212,10 @@ void print_usage(void)
   -?, --help                show this help, then exit.\n \
   -V, --version             print version, then exit.\n\n");
     printf("Options:\n \
-  -h, --host=HOSTNAME       database server host or socket directory (default: \"127.0.0.1\")\n \
-  -p, --port=PORT           database server port (default: \"6432\")\n \
-  -U, --username=USERNAME   database user name (default: \"current logged user\")\n \
-  -d, --dbname=DBNAME       database name (default: \"pgbouncer\")\n \
+  -h, --host=HOSTNAME       pgbouncer server host or socket directory (default: \"/tmp\")\n \
+  -p, --port=PORT           pgbouncer server port (default: \"6432\")\n \
+  -U, --username=USERNAME   pgbouncer admin user name (default: \"current logged user\")\n \
+  -d, --dbname=DBNAME       pgbouncer admin database name (default: \"pgbouncer\")\n \
   -w, --no-password         never prompt for password\n \
   -W, --password            force password prompt (should happen automatically)\n\n");
     printf("Report bugs to %s.\n", PROGRAM_AUTHORS_CONTACTS);
@@ -771,7 +771,7 @@ float get_loadavg(const int m)
     if ( m != 1 && m != 5 && m != 15 )
         fprintf(stderr, "invalid value for load average\n");
 
-    float avg, avg1, avg5, avg15;
+    float avg = 0, avg1, avg5, avg15;
     FILE *loadavg_fd;
 
     if ((loadavg_fd = fopen(LOADAVG_FILE, "r")) == NULL) {
