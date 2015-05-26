@@ -1688,7 +1688,6 @@ void log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * con
             return;
         }
     } else {
-        delwin(*w_log);
         fclose(conn_opts->log);
         conn_opts->log_opened = false;
         return;
@@ -2162,6 +2161,8 @@ int main (int argc, char *argv[])
                     print_help_screen();
                     break;
                 case 'q':
+                    free(ws_color);
+                    free(wa_color);
                     endwin();
                     close_connections(conn_opts, conns);
                     exit(EXIT_SUCCESS);
@@ -2200,9 +2201,4 @@ int main (int argc, char *argv[])
             usleep(interval);
         }
     }
-
-    /* quit */
-//    endwin();
-//    close_connections(conn_opts, conns);
-//    return 0;
 }

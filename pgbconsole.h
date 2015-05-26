@@ -46,7 +46,6 @@ struct conn_opts_struct
     int terminal;
     bool conn_used;
     char host[BUFFERSIZE];
-//    char hostaddr[BUFFERSIZE];
     char port[BUFFERSIZE];
     char user[BUFFERSIZE];
     char dbname[BUFFERSIZE];
