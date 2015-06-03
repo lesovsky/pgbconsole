@@ -21,12 +21,12 @@ $ sudo make install
 $ pgbconsole
 ```
 #### Known issues:
+- Consoles number limited by 8.
 - Pgbouncer service restart not supported.
 - Edit configuration supported only for local pgbouncers.
 - Show log files supported only for local pgbouncers.
-- Log-file screen displayed wrong when window enlarged (use L hotkey to reopen and redraw log).
+- Log-file screen displayed wrong when window size increased (use L hotkey to reopen and redraw log).
 
 #### Todo:
 - add simultaneous pause/resume/reload for all pgbouncers (hotkey for common menu, and choose an option).
-- add full log viewing with PAGER (small l hotkey).
 - save color mappings per console into .pgbrc.

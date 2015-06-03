@@ -1741,6 +1741,49 @@ void print_log(WINDOW * window, struct conn_opts_struct * conn_opts)
 
 /*
  ****************************************************** key press function **
+ * Open log in $PAGER or in less if $PAGER environment var is not defined.
+ *
+ * IN:
+ * @window          Window for result messages.
+ * @conn_opts       Current connection options.
+ * @conn            Current pgbouncer connection.
+ ****************************************************************************
+ */
+void show_full_log(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn)
+{
+    char * logfile;
+    pid_t pid;
+
+    if (check_pgb_listen_addr(conn_opts)) {
+        logfile = (char *) malloc(sizeof(char) * PATH_MAX);
+        get_conf_value(conn, PGB_CONFIG_LOGFILE, logfile);
+        if (strlen(logfile) != 0) {
+            pid = fork();
+            if (pid == 0) {
+                char * pager = (char *) malloc(sizeof(char) * 128);
+                if ((pager = getenv("PAGER")) == NULL)
+                    pager = DEFAULT_PAGER;
+                execlp(pager, pager, logfile, NULL);
+                free(pager);
+                exit(EXIT_FAILURE);
+            } else if (pid < 0) {
+                wprintw(window, "Do nothing. Can't open %s: fork failed.", logfile);
+                return;
+            } else if (waitpid(pid, NULL, 0) != pid) {
+                wprintw(window, "Unknown error: waitpid failed.");
+                return;
+            }
+            free(logfile);
+        } else {
+            wprintw(window, "Do nothing. %s option not found.", PGB_CONFIG_LOGFILE);
+            free(logfile);
+            return;
+        }
+    }
+    return;
+}
+/*
+ ****************************************************** key press function **
  * Edit the current configuration settings.
  *
  * IN:
@@ -1860,7 +1903,7 @@ void print_help_screen(void)
                          'S' suspend, 'Z' shutdown.\n \
   N,Ctrl+D      'N' add new connection, Ctrl+D close current connection.\n\n \
   W         write connections info into ~/.pgbrc.\n \
-  L         show log file (only for local pgbouncers).\n \
+  L,l       'L' show log file tail, 'l' open log file with pager (only for local pgbouncers).\n \
   C,E       'C' show config, 'E' edit config (edit only for local pgbouncers).\n \
   I,i       'I' set refresh interval, 'i' change color scheme.\n \
   h         show help screen.\n \
@@ -2106,6 +2149,9 @@ int main (int argc, char *argv[])
                     break;
                 case 'L':
                     log_process(w_cmdline, &w_log, conn_opts[console_index], conns[console_index]);
+                    break;
+                case 'l':
+                    show_full_log(w_cmdline, conn_opts[console_index], conns[console_index]);
                     break;
                 case 'M':
                     do_reload(w_cmdline, conns[console_index]);

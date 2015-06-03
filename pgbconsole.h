@@ -29,6 +29,7 @@
 #define PGBRC_READ_ERR  1
 #define PAGER           "${PAGER:-less}"
 #define DEFAULT_EDITOR  "vim"
+#define DEFAULT_PAGER   "less"
 
 /* misc */
 #define PGB_CONFIG_LOGFILE  "logfile"
@@ -210,6 +211,8 @@ float
     change_refresh(WINDOW * window, float interval);
 void
     log_process(WINDOW * window, WINDOW ** w_log, struct conn_opts_struct * conn_opts, PGconn * conn);
+void
+    show_full_log(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn);
 void
     change_colors(int * ws_color, int * wc_color, int * wa_color, int * wl_color);
 void
