@@ -27,7 +27,6 @@
 #define PGBRC_FILE      ".pgbrc"
 #define PGBRC_READ_OK   0
 #define PGBRC_READ_ERR  1
-#define PAGER           "${PAGER:-less}"
 #define DEFAULT_EDITOR  "vim"
 #define DEFAULT_PAGER   "less"
 
@@ -204,7 +203,7 @@ int
 void
     write_pgbrc(WINDOW * window, struct conn_opts_struct * conn_opts[]);
 void
-    show_config(PGconn * conn);
+    show_config(WINDOW * window, PGconn * conn);
 void
     edit_config(WINDOW * window, struct conn_opts_struct * conn_opts, PGconn * conn);
 float

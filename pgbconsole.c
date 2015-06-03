@@ -1530,13 +1530,14 @@ struct colAttrs * calculate_width(struct colAttrs *columns, int row_count, int c
  * 'SHOW CONFIG' output redirected to pager (default less).
  ****************************************************************************
  */
-void show_config(PGconn * conn)
+void show_config(WINDOW * window, PGconn * conn)
 {
     int  row_count, col_count, row, col, i;
     FILE *fpout;
     PGresult * res;
     struct colAttrs *columns;
     enum context query_context = config;
+    char * pager = malloc(sizeof(char) * 128);
 
     res = do_query(conn, query_context);
     row_count = PQntuples(res);
@@ -1545,7 +1546,12 @@ void show_config(PGconn * conn)
     columns = (struct colAttrs *) malloc(sizeof(struct colAttrs) * col_count);
     columns = calculate_width(columns, row_count, col_count, res);
 
-    fpout = popen(PAGER, "w");
+    if ((pager = getenv("PAGER")) == NULL)
+        pager = DEFAULT_PAGER;
+    if ((fpout = popen(pager, "w")) == NULL) {
+        wprintw(window, "Do nothing. Failed to open pipe to %s", pager);
+        return;
+    }
     fprintf(fpout, " Pgbouncer configuration:\n");
     /* print column names */
     for (col = 0, i = 0; col < col_count; col++, i++)
@@ -2192,7 +2198,7 @@ int main (int argc, char *argv[])
                     query_context = stats;
                     break;
                 case 'C':
-                    show_config(conns[console_index]);
+                    show_config(w_cmdline, conns[console_index]);
                     break;
                 case 'E':
                     edit_config(w_cmdline, conn_opts[console_index], conns[console_index]);
