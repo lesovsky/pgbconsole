@@ -3,9 +3,12 @@
  * (C) 2015 by Alexey V. Lesovsky (lesovsky <at> gmail.com)
  */
 
+#ifndef __PGBCONSOLE_H__
+#define __PGBCONSOLE_H__
+
 #define PROGRAM_NAME        "pgbconsole"
 #define PROGRAM_VERSION     0.1
-#define PROGRAM_RELEASE     "rc"
+#define PROGRAM_RELEASE     0
 #define PROGRAM_AUTHORS_CONTACTS    "<lesovsky@gmail.com>"
 
 #define _GNU_SOURCE
@@ -230,3 +233,5 @@ void do_resume(WINDOW * window, PGconn *conn);
 void do_kill(WINDOW * window, PGconn *conn);
 void do_shutdown(WINDOW * window, PGconn *conn);
 /* END Pgbouncer action functions */
+
+#endif
