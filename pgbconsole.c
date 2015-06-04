@@ -121,7 +121,7 @@ void create_initial_conn(int argc, char *argv[],
         if (strcmp(argv[1], "--version") == 0
                 || strcmp(argv[1], "-V") == 0)
         {
-            printf("  %s, version %.1f (%s)\n", PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
+            printf("%s %.1f.%d\n", PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
             exit(EXIT_SUCCESS);
         }
     }
@@ -1901,7 +1901,7 @@ void print_help_screen(void)
     keypad(w, TRUE);
 
     wclear(w);
-    wprintw(w, "Help for interactive commands - %s version %.1f (%s)\n\n",
+    wprintw(w, "Help for interactive commands - %s version %.1f.%d\n\n",
             PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
     wprintw(w, "   1..8       switch between consoles.\n \
   a,c,d,p,s     show: 'a' stats, 'c' clients, 's' servers, 'd' databases, 'p' pools.\n \
@@ -1970,7 +1970,7 @@ void init_colors(int * ws_color, int * wc_color, int * wa_color, int * wl_color)
 void draw_color_help(WINDOW * w, int * ws_color, int * wc_color, int * wa_color, int * wl_color, int target, int * target_color)
 {
         wclear(w);
-        wprintw(w, "Help for color mapping - %s, version %.1f (%s)\n\n",
+        wprintw(w, "Help for color mapping - %s, version %.1f.%d\n\n",
                 PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
         wattron(w, COLOR_PAIR(*ws_color));
         wprintw(w, "\tpgbconsole: 2015-05-15 19:28:48, load average: 1.09, 1.13, 1.18\n\
