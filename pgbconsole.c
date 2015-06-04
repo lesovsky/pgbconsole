@@ -185,13 +185,7 @@ void create_initial_conn(int argc, char *argv[],
     if ( prompt_password == TRI_YES )
         strcpy(conn_opts[0]->password, password_prompt("Password: ", 100, false));
 
-    if ( strlen(conn_opts[0]->dbname) == 0
-            && strlen(conn_opts[0]->user) == 0 ) {
-        strcpy(conn_opts[0]->user, pw->pw_name);
-        strcpy(conn_opts[0]->dbname, DEFAULT_DBNAME);
-    }
-    else if ( strlen(conn_opts[0]->user) != 0
-            && strlen(conn_opts[0]->dbname) == 0 )
+    if ( strlen(conn_opts[0]->user) != 0 && strlen(conn_opts[0]->dbname) == 0 )
         strcpy(conn_opts[0]->dbname, conn_opts[0]->user);
 
     conn_opts[0]->conn_used = true;
@@ -213,8 +207,8 @@ void print_usage(void)
     printf("Options:\n \
   -h, --host=HOSTNAME       pgbouncer server host or socket directory (default: \"/tmp\")\n \
   -p, --port=PORT           pgbouncer server port (default: \"6432\")\n \
-  -U, --username=USERNAME   pgbouncer admin user name (default: \"current logged user\")\n \
-  -d, --dbname=DBNAME       pgbouncer admin database name (default: \"pgbouncer\")\n \
+  -U, --username=USERNAME   pgbouncer admin user name (default: \"current user\")\n \
+  -d, --dbname=DBNAME       pgbouncer admin database name (default: \"current user\")\n \
   -w, --no-password         never prompt for password\n \
   -W, --password            force password prompt (should happen automatically)\n\n");
     printf("Report bugs to %s.\n", PROGRAM_AUTHORS_CONTACTS);

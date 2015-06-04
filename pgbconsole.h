@@ -8,7 +8,7 @@
 
 #define PROGRAM_NAME        "pgbconsole"
 #define PROGRAM_VERSION     0.1
-#define PROGRAM_RELEASE     0
+#define PROGRAM_RELEASE     1
 #define PROGRAM_AUTHORS_CONTACTS    "<lesovsky@gmail.com>"
 
 #define _GNU_SOURCE
@@ -21,7 +21,6 @@
 #define DEFAULT_HOST        "/tmp"
 #define DEFAULT_PORT        "6432"
 #define DEFAULT_USER        "postgres"
-#define DEFAULT_DBNAME      "pgbouncer"
 
 /* files */
 #define STAT_FILE       "/proc/stat"
