@@ -10,9 +10,25 @@ pgbConsole is the top-like console for Pgbouncer - PostgreSQL connection pooler.
 
 #### Install notes:
 
-#### Install from sources:
-- install git, make, gcc, postgresql devel and ncurses devel packages
+##### Install on Ubuntu
+- install PPA and update
+```
+$ sudo add-apt-repository ppa:lesovsky/pgbconsole
+$ sudo apt-get update
+$ sudo apt-get install pgbconsole
+```
+Debian users can create package using this [link](https://wiki.debian.org/CreatePackageFromPPA).
 
+##### Install on RHEL/CentOS.
+- install pgbConsole from Essential Kaos testing repo.
+ 
+```
+$ sudo yum install http://release.yum.kaos.io/x86_64/kaos-repo-6.8-0.el6.noarch.rpm
+$ sudo yum --enablerepo=kaos-testing install pgbconsole
+```
+
+##### Install from sources:
+- install git, make, gcc, postgresql devel and ncurses devel packages
 ```
 $ git clone https://github.com/lesovsky/pgbconsole
 $ cd pgbconsole

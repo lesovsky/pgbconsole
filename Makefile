@@ -20,6 +20,7 @@ clean:
 	rm -f $(PROGRAM_NAME)
 
 install:
+        mkdir -p $(DESTDIR)$(PREFIX)/bin/
 	install -pm 755 $(PROGRAM_NAME) $(DESTDIR)$(PREFIX)/bin/
 
 uninstall:
