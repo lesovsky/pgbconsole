@@ -1,8 +1,11 @@
 pgbconsole (current development) unstable; urgency=low
 
+  * rewrite sleep mechanism. now it is have more adequate behaviour with long update intervals.
   * open full logfile with pager.
   * fix segfault when close logfile screen and switch to another console where
     logfile screen still opened.
+
+ -- Alexey Lesovsky <lesovsky@gmail.com>  Tue, 09 June 2015 16:48:07 +0500
 
 pgbconsole (0.1-1) unstable; urgency=low
 
