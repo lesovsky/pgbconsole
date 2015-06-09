@@ -2087,7 +2087,8 @@ int main (int argc, char *argv[])
     enum context query_context = pools;
     PGresult    * res;
     PGconn      * conns[8];
-    float interval = 1000000;
+    float interval = DEFAULT_INTERVAL,
+          sleep_usec = 0;
     static int console_no = 1;
     static int console_index = 0;
     int ch;
@@ -2125,10 +2126,12 @@ int main (int argc, char *argv[])
     w_answer = newwin(0, 0, 5, 0);
 
     init_colors(ws_color, wc_color, wa_color, wl_color);
+    curs_set(0);
 
     /* main loop */
     while (1) {
         if (key_is_pressed()) {
+            curs_set(1);
             wattron(w_cmdline, COLOR_PAIR(*wc_color));
             ch = getch();
             switch (ch) {
@@ -2218,6 +2221,7 @@ int main (int argc, char *argv[])
                     break;
             }
             wattroff(w_cmdline, COLOR_PAIR(*wc_color));
+            curs_set(0);
         } else {
             wattron(w_summary, COLOR_PAIR(*ws_color));
             wattron(w_answer, COLOR_PAIR(*wa_color));
@@ -2244,7 +2248,18 @@ int main (int argc, char *argv[])
             wattroff(w_summary, COLOR_PAIR(*ws_color));
             wattroff(w_answer, COLOR_PAIR(*wa_color));
 
-            usleep(interval);
-        }
-    }
+            /* sleep loop */
+            for (sleep_usec = 0; sleep_usec < interval; sleep_usec += INTERVAL_STEP) {
+                if (key_is_pressed())
+                    break;
+                else {
+                    usleep(INTERVAL_STEP);
+                    if (interval > DEFAULT_INTERVAL && sleep_usec == DEFAULT_INTERVAL) {
+                        wrefresh(w_cmdline);
+                        wclear(w_cmdline);
+                    }
+                }
+            }           // end sleep loop
+        }               // end main if-then-else
+    }                   // end main loop
 }

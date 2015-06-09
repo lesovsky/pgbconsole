@@ -8,7 +8,7 @@
 
 #define PROGRAM_NAME        "pgbconsole"
 #define PROGRAM_VERSION     0.1
-#define PROGRAM_RELEASE     1
+#define PROGRAM_RELEASE     2
 #define PROGRAM_AUTHORS_CONTACTS    "<lesovsky@gmail.com>"
 
 #define _GNU_SOURCE
@@ -16,6 +16,8 @@
 /* sizes and limits */
 #define BUFFERSIZE 4096
 #define MAX_CONSOLE 8
+#define DEFAULT_INTERVAL    1000000
+#define INTERVAL_STEP       200000
 
 /* connectins defaults */
 #define DEFAULT_HOST        "/tmp"
