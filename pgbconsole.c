@@ -332,7 +332,7 @@ void open_connections(struct conn_opts_struct * conn_opts[], PGconn * conns[])
                 strcat(conn_opts[i]->conninfo, conn_opts[i]->password);
                 conns[i] = PQconnectdb(conn_opts[i]->conninfo);
             } else if ( PQstatus(conns[i]) == CONNECTION_BAD ) {
-                printf("Unable to connect to %s:%s %s@%s",
+                printf("WARNING: Unable to connect to %s:%s %s@%s\n",
                         conn_opts[i]->host, conn_opts[i]->port,
                         conn_opts[i]->user, conn_opts[i]->dbname);
             }
