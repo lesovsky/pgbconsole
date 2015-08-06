@@ -162,9 +162,9 @@ void create_initial_conn(int argc, char *argv[],
         if ( (argc - optind > 1)
                 && strlen(conn_opts[0]->user) == 0
                 && strlen(conn_opts[0]->dbname) == 0 )
-            strcpy(conn_opts[0]->user, argv[optind]);
-        else if ( (argc - optind >= 1) && strlen(conn_opts[0]->dbname) == 0 )
             strcpy(conn_opts[0]->dbname, argv[optind]);
+        else if ( (argc - optind >= 1) && strlen(conn_opts[0]->user) == 0 )
+            strcpy(conn_opts[0]->user, argv[optind]);
         else
             fprintf(stderr,
                     "%s: warning: extra command-line argument \"%s\" ignored\n",
