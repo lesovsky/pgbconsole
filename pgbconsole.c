@@ -77,6 +77,135 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
 
 /*
  ******************************************************** startup function **
+ * Initialize empty struct for input arguments.
+ *
+ * OUT:
+ * @args        Empty struct.
+ ****************************************************************************
+ */
+void init_args_struct(struct args_s * args)
+{
+    args->count = 0;
+    strcpy(args->connfile, "");
+    strcpy(args->host, "");
+    strcpy(args->port, "");
+    strcpy(args->user, "");
+    strcpy(args->dbname, "");
+    args->need_passwd = false;                      /* by default password not need */
+}
+
+/*
+ ******************************************************** startup function **
+ * Parse input arguments
+ *
+ * IN:
+ * @argc            Input arguments count.
+ * @argv[]          Input arguments array.
+ *
+ * OUT:
+ * @args            Struct with input args.
+ ****************************************************************************
+ */
+void arg_parse(int argc, char *argv[], struct args_s *args)
+{
+    int param, option_index;
+
+    /* short options */
+    const char * short_options = "f:h:p:U:d:wW?";
+
+    /* long options */
+    const struct option long_options[] = {
+        {"help", no_argument, NULL, '?'},
+        {"file", required_argument, NULL, 'f'},
+        {"host", required_argument, NULL, 'h'},
+        {"port", required_argument, NULL, 'p'},
+        {"dbname", required_argument, NULL, 'd'},
+        {"no-password", no_argument, NULL, 'w'},
+        {"password", no_argument, NULL, 'W'},
+        {"user", required_argument, NULL, 'U'},
+        {NULL, 0, NULL, 0}
+    };
+    
+    if (argc > 1) {
+        if ((strcmp(argv[1], "-?") == 0)
+            || (argc == 2 && (strcmp(argv[1], "--help") == 0)))
+        {
+            print_usage();
+            exit(EXIT_SUCCESS);
+        }
+        if (strcmp(argv[1], "--version") == 0
+            || strcmp(argv[1], "-V") == 0)
+        {
+            printf("%s %.1f.%d\n", PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
+            exit(EXIT_SUCCESS);
+        }
+    }
+
+    while ( (param = getopt_long(argc, argv,
+                short_options, long_options, &option_index)) != -1 ) {
+        switch (param) {
+            case 'h':
+                strcpy(args->host, optarg);
+                args->count++;
+                break;
+            case 'f':
+                strcpy(args->connfile, optarg);
+                args->count++;
+                break;
+            case 'p':
+                strcpy(args->port, optarg);
+                args->count++;
+                break;
+            case 'U':
+                strcpy(args->user, optarg);
+                args->count++;
+                break;
+            case 'd':
+                args->count++;
+                strcpy(args->dbname, optarg);
+                break;
+            case 'w':
+                args->need_passwd = false;
+                break;
+            case 'W':
+                args->need_passwd = true;
+                break;
+            case '?': default:
+                fprintf(stderr,"Try \"%s --help\" for more information.\n", argv[0]);
+                exit(EXIT_SUCCESS);
+                break;
+        }
+    }
+
+    /* handle extra parameters if exists, first - dbname, second - user, others - ignore */
+    while (argc - optind >= 1) {
+        if ( (argc - optind > 1)
+                && strlen(args->user) == 0
+                && strlen(args->dbname) == 0 ) {
+            strcpy(args->dbname, argv[optind]);
+            strcpy(args->user, argv[optind + 1]);
+            optind++;
+            args->count++;
+        }
+        else if ( (argc - optind >= 1) && strlen(args->user) != 0 && strlen(args->dbname) == 0 ) {
+            strcpy(args->dbname, argv[optind]);
+            args->count++;
+        } else if ( (argc - optind >= 1) && strlen(args->user) == 0 && strlen(args->dbname) != 0 ) {
+            strcpy(args->user, argv[optind]);
+            args->count++;
+        } else if ( (argc - optind >= 1) && strlen(args->user) == 0 && strlen(args->dbname) == 0 ) {
+            strcpy(args->dbname, argv[optind]);
+            args->count++;
+        } else
+            fprintf(stderr,
+            "%s: warning: extra command-line argument \"%s\" ignored\n",
+            argv[0], argv[optind]);
+            optind++;
+    }
+}
+
+/*
+ ******************************************************** startup function **
  * Take input parameters and add them into connections options.
  *
  * IN:
@@ -87,102 +216,32 @@ void init_conn_opts(struct conn_opts_struct *conn_opts[])
  * @conn_opts[]     Array where connections options will be saved.
  ****************************************************************************
  */
-void create_initial_conn(int argc, char *argv[],
-        struct conn_opts_struct * conn_opts[])
+void create_initial_conn(struct args_s * args, struct conn_opts_struct * conn_opts[])
 {
     struct passwd *pw = getpwuid(getuid());
 
-    /* short options */
-    const char * short_options = "h:p:U:d:wW?";
+    if ( strlen(args->host) != 0 )
+        strcpy(conn_opts[0]->host, args->host);
 
-    /* long options */
-    const struct option long_options[] = {
-        {"help", no_argument, NULL, '?'},
-        {"host", required_argument, NULL, 'h'},
-        {"port", required_argument, NULL, 'p'},
-        {"dbname", required_argument, NULL, 'd'},
-        {"no-password", no_argument, NULL, 'w'},
-        {"password", no_argument, NULL, 'W'},
-        {"user", required_argument, NULL, 'U'},
-        {NULL, 0, NULL, 0}
-    };
+    if ( strlen(args->port) != 0 )
+        strcpy(conn_opts[0]->port, args->port);
 
-    int param, option_index;
-    enum trivalue prompt_password = TRI_DEFAULT;
-
-    if (argc > 1)
-    {
-        if ((strcmp(argv[1], "-?") == 0)
-                || (argc == 2 && (strcmp(argv[1], "--help") == 0)))
-        {
-            print_usage();
-            exit(EXIT_SUCCESS);
-        }
-        if (strcmp(argv[1], "--version") == 0
-                || strcmp(argv[1], "-V") == 0)
-        {
-            printf("%s %.1f.%d\n", PROGRAM_NAME, PROGRAM_VERSION, PROGRAM_RELEASE);
-            exit(EXIT_SUCCESS);
-        }
-    }
-
-    while ( (param = getopt_long(argc, argv,
-                    short_options, long_options, &option_index)) != -1 )
-    {
-        switch(param)
-        {
-            case 'h':
-                strcpy(conn_opts[0]->host, optarg);
-                break;
-            case 'p':
-                strcpy(conn_opts[0]->port, optarg);
-                break;
-            case 'U':
-                strcpy(conn_opts[0]->user, optarg);
-                break;
-            case 'd':
-                strcpy(conn_opts[0]->dbname, optarg);
-                break;
-            case 'w':
-                prompt_password = TRI_NO;
-                break;
-            case 'W':
-                prompt_password = TRI_YES;
-                break;
-            case '?': default:
-                fprintf(stderr,
-                        "Try \"%s --help\" for more information.\n", argv[0]);
-                exit (EXIT_SUCCESS);
-                break;
-        }
-    }
-
-    while (argc - optind >= 1)
-    {
-        if ( (argc - optind > 1)
-                && strlen(conn_opts[0]->user) == 0
-                && strlen(conn_opts[0]->dbname) == 0 )
-            strcpy(conn_opts[0]->dbname, argv[optind]);
-        else if ( (argc - optind >= 1) && strlen(conn_opts[0]->user) == 0 )
-            strcpy(conn_opts[0]->user, argv[optind]);
-        else
-            fprintf(stderr,
-                    "%s: warning: extra command-line argument \"%s\" ignored\n",
-                    argv[0], argv[optind]);
-        optind++;
-    }
-
-    if ( strlen(conn_opts[0]->host) == 0 )
-        strcpy(conn_opts[0]->host, DEFAULT_HOST);
-
-    if ( strlen(conn_opts[0]->port) == 0 )
-        strcpy(conn_opts[0]->port, DEFAULT_PORT);
-
-    if ( strlen(conn_opts[0]->user) == 0 ) {
+    if ( strlen(args->user) == 0 )
         strcpy(conn_opts[0]->user, pw->pw_name);
-    }
+    else
+        strcpy(conn_opts[0]->user, args->user);
 
-    if ( prompt_password == TRI_YES )
+    if ( strlen(args->dbname) == 0 && strlen(args->user) == 0)
+        strcpy(conn_opts[0]->dbname, pw->pw_name);
+    else if ( strlen(args->dbname) == 0 && strlen(args->user) != 0)
+        strcpy(conn_opts[0]->dbname, args->user);
+    else if ( strlen(args->dbname) != 0 && strlen(args->user) == 0) {
+        strcpy(conn_opts[0]->dbname, args->dbname);
+        strcpy(conn_opts[0]->user, pw->pw_name);
+    } else
+        strcpy(conn_opts[0]->dbname, args->dbname);
+
+    if ( args->need_passwd )
         strcpy(conn_opts[0]->password, password_prompt("Password: ", 100, false));
 
     if ( strlen(conn_opts[0]->user) != 0 && strlen(conn_opts[0]->dbname) == 0 )
@@ -230,34 +289,38 @@ void print_usage(void)
  * Success or failure.
  ****************************************************************************
  */
-int create_pgbrc_conn(int argc, char *argv[],
-        struct conn_opts_struct * conn_opts[], const int pos)
+int create_pgbrc_conn(struct args_s * args, struct conn_opts_struct * conn_opts[], const int pos)
 {
     FILE *fp;
-    static char pgbrcpath[PATH_MAX];
+    static char pgbrc_path[PATH_MAX];
     struct stat statbuf;
     char strbuf[BUFFERSIZE];
     int i = pos;
     struct passwd *pw = getpwuid(getuid());
 
-    strcpy(pgbrcpath, pw->pw_dir);
-    strcat(pgbrcpath, "/");
-    strcat(pgbrcpath, PGBRC_FILE);
+    if (strlen(args->connfile) == 0) {
+        strcpy(pgbrc_path, pw->pw_dir);
+        strcat(pgbrc_path, "/");
+        strcat(pgbrc_path, PGBRC_FILE);
+    } else {
+        strcpy(pgbrc_path, args->connfile);
+    }
 
-    if (access(pgbrcpath, F_OK) == -1) {
+    if (access(pgbrc_path, F_OK) == -1 && strlen(args->connfile) != 0) {
+        fprintf(stderr, "WARNING: no access to %s.\n", pgbrc_path);
         return PGBRC_READ_ERR;
     }
 
-    stat(pgbrcpath, &statbuf);
-    if ( statbuf.st_mode & (S_IRWXG | S_IRWXO) ) {
+    stat(pgbrc_path, &statbuf);
+    if ( statbuf.st_mode & (S_IRWXG | S_IRWXO) && access(pgbrc_path, F_OK) != -1) {
         fprintf(stderr,
-                "WARNING: %s has wrong permissions.\n", pgbrcpath);
+                "WARNING: %s has wrong permissions.\n", pgbrc_path);
         return PGBRC_READ_ERR;
     }
 
     /* read connections settings from .pgbrc */
-    if ((fp = fopen(pgbrcpath, "r")) != NULL) {
-        while (fgets(strbuf, 4096, fp) != 0) {
+    if ((fp = fopen(pgbrc_path, "r")) != NULL) {
+        while (fgets(strbuf, 4096, fp) != 0 && (i < MAX_CONSOLE)) {
             sscanf(strbuf, "%[^:]:%[^:]:%[^:]:%[^:]:%[^:\n]",
                 conn_opts[i]->host, conn_opts[i]->port,
                 conn_opts[i]->dbname,   conn_opts[i]->user,
@@ -270,7 +333,7 @@ int create_pgbrc_conn(int argc, char *argv[],
         return PGBRC_READ_OK;
     } else {
         fprintf(stdout,
-                "WARNING: failed to open %s. Try use defaults.\n", pgbrcpath);
+                "WARNING: failed to open %s. Try use defaults.\n", pgbrc_path);
         return PGBRC_READ_ERR;
     }
 }
@@ -2082,6 +2145,7 @@ void change_colors(int * ws_color, int * wc_color, int * wa_color, int * wl_colo
 int main (int argc, char *argv[])
 {
     WINDOW  *w_summary, *w_cmdline, *w_answer, *w_log;
+    struct args_s *args;
     struct conn_opts_struct * conn_opts[MAX_CONSOLE];
     struct stats_cpu_struct * st_cpu[2];
     enum context query_context = pools;
@@ -2098,14 +2162,25 @@ int main (int argc, char *argv[])
         * wa_color = (int *) malloc(sizeof(int)),
         * wl_color = (int *) malloc(sizeof(int));
 
-    /* Process args... */
+    args = (struct args_s *) malloc(sizeof(struct args_s));
+    init_args_struct(args);
     init_conn_opts(conn_opts);
-    if ( argc > 1 ) {
-        create_initial_conn(argc, argv, conn_opts);
-        create_pgbrc_conn(argc, argv, conn_opts, 1);
-    } else
-        if (create_pgbrc_conn(argc, argv, conn_opts, 0) == PGBRC_READ_ERR)
-            create_initial_conn(argc, argv, conn_opts);
+
+    /* Process args... */
+    if (argc > 1) {
+        arg_parse(argc, argv, args);
+        if (strlen(args->connfile) != 0 && args->count == 1) {
+            if (create_pgbrc_conn(args, conn_opts, 0) == PGBRC_READ_ERR) {
+                create_initial_conn(args, conn_opts);
+            }
+        } else {
+            create_initial_conn(args, conn_opts);
+            create_pgbrc_conn(args, conn_opts, 1);
+        }
+    } else {
+        if (create_pgbrc_conn(args, conn_opts, 0) == PGBRC_READ_ERR)
+            create_initial_conn(args, conn_opts);
+    }
 
     /* CPU stats related actions */
     init_stats(st_cpu);

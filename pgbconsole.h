@@ -44,6 +44,20 @@ unsigned int hz;
 #define PG_CMD_OK PGRES_COMMAND_OK
 #define PG_TUP_OK PGRES_TUPLES_OK
 
+/* struct for input args */
+struct args_s
+{
+    int count;
+    char connfile[BUFFERSIZE];
+    char host[BUFFERSIZE];
+    char port[BUFFERSIZE];
+    char user[BUFFERSIZE];
+    char dbname[BUFFERSIZE];
+    bool need_passwd;
+};
+
+#define ARGS_SIZE (sizeof(struct args_s))
+
 /* Struct which define connection options */
 struct conn_opts_struct
 {
@@ -133,9 +147,13 @@ void
 void
     init_conn_opts(struct conn_opts_struct *conn_opts[]);
 void
-    create_initial_conn(int argc, char *argv[], struct conn_opts_struct *conn_opts[]);
+    init_args_struct(struct args_s * args);
+void
+    arg_parse(int argc, char *argv[], struct args_s *args);
+void
+    create_initial_conn(struct args_s * args, struct conn_opts_struct *conn_opts[]);
 int
-    create_pgbrc_conn(int argc, char *argv[], struct conn_opts_struct *conn_opts[], const int pos);
+    create_pgbrc_conn(struct args_s * args, struct conn_opts_struct * conn_opts[], const int pos);
 void
     prepare_conninfo(struct conn_opts_struct *conn_opts[]);
 char * 

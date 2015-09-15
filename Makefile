@@ -1,7 +1,7 @@
 PROGRAM_NAME = pgbconsole
 SOURCE = pgbconsole.c
 CC ?= gcc
-CFLAGS = -std=gnu99 -O2 -Wall -pedantic
+CFLAGS = -g -std=gnu99 -O2 -Wall -pedantic
 PREFIX ?= /usr
 PGCONFIG ?= pg_config
 PGLIBDIR = $(shell $(PGCONFIG) --libdir)

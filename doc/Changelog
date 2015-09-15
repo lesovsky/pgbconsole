@@ -1,5 +1,6 @@
 pgbconsole (current development) unstable; urgency=low
 
+  * pull arg parse from pgcenter.
   * rewrite sleep mechanism. now it is have more adequate behaviour with long update intervals.
   * open full logfile with pager.
   * fix segfault when close logfile screen and switch to another console where
